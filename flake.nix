@@ -12,19 +12,8 @@
     }:
     {
       nixosModules.default = ./contrib/nixos/modules/copyparty.nix;
-      overlays.default = final: prev: rec {
-        copyparty = final.python3.pkgs.callPackage ./contrib/package/nix/copyparty {
-          ffmpeg = final.ffmpeg-full;
-        };
-
-        partyfuse = prev.callPackage ./contrib/package/nix/partyfuse {
-          inherit copyparty;
-        };
-
-        u2c = prev.callPackage ./contrib/package/nix/u2c {
-          inherit copyparty;
-        };
-      };
+      overlays.default = final: prev:
+        (import ./contrib/package/nix/overlay.nix final prev) // { copypartyFlake = self; };
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
@@ -34,28 +23,26 @@
           config = {
             allowAliases = false;
           };
-          overlays = [ self.overlays.default ];
+          overlays = [
+            self.overlays.default
+          ];
         };
       in
       {
         # check that copyparty builds with all optionals turned on
-        checks.copyparty-full = self.packages.${system}.copyparty.override {
-          withHashedPasswords = true;
-          withCertgen = true;
-          withThumbnails = true;
-          withFastThumbnails = true;
-          withMediaProcessing = true;
-          withBasicAudioMetadata = true;
-          withZeroMQ = true;
-          withFTPS = true;
-          withSMB = true;
+        checks = {
+          inherit (pkgs)
+            copyparty-full
+            copyparty-unstable-full
+            ;
         };
 
         packages = {
           inherit (pkgs)
             copyparty
-            partyfuse
-            u2c
+            copyparty-full
+            copyparty-unstable
+            copyparty-unstable-full
             ;
           default = self.packages.${system}.copyparty;
         };

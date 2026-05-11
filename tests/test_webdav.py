@@ -8,6 +8,7 @@ import tempfile
 import time
 import unittest
 
+from copyparty.__init__ import MACOS
 from copyparty.authsrv import AuthSrv
 from copyparty.httpcli import HttpCli
 from tests import util as tu
@@ -58,6 +59,20 @@ Content-Type: application/octet-stream
 Oc-Checksum: SHA1:f5e3dc3fb27af53cd0005a1184e2df06481199e8
 Referer: http://127.0.0.1:3923/
 X-Oc-Mtime: 1689453578
+Accept-Encoding: gzip
+
+fgsfds"""
+
+
+RCLONE_PUT_FLOAT = """PUT /%s HTTP/1.1
+Host: 127.0.0.1:3923
+User-Agent: rclone/v1.67.0
+Content-Length: 6
+Authorization: Basic azp1
+Content-Type: application/octet-stream
+Oc-Checksum: SHA1:f5e3dc3fb27af53cd0005a1184e2df06481199e8
+Referer: http://127.0.0.1:3923/
+X-Oc-Mtime: 1689453578.123
 Accept-Encoding: gzip
 
 fgsfds"""
@@ -200,6 +215,12 @@ class TestHttpCli(TC):
         # then it uploads the file
         h, b = self.req(RCLONE_PUT % ("a/fa",))
         self.assertStart("HTTP/1.1 201 Created\r", h)
+
+        # float x-oc-mtime should be accepted
+        h, b = self.req(RCLONE_PUT_FLOAT % ("a/fb",))
+        self.assertStart("HTTP/1.1 201 Created\r", h)
+        zi = 0 if MACOS else 3  # its okay macos you tried your best
+        self.assertAlmostEqual(os.path.getmtime("a/fb"), 1689453578.123, places=zi)
 
         # then it does a propfind to confirm
         h, b = self.req(RCLONE_PROPFIND % ("a/fa",))

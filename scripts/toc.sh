@@ -20,14 +20,14 @@ cat $f | awk '
     o{next}
     /^#/{s=1;rs=0;pr()}
     /^#* *(nix package)/{rs=1}
-    /^#* *(themes|install on android|dev env setup|just the sfx|complete release|optional gpl stuff|nixos module|reverse-proxy perf)|```/{s=rs}
+    /^#* *(themes|install on android|install on iOS|dev env setup|just the sfx|complete release|optional gpl stuff|nixos module|reverse-proxy perf)|```/{s=rs}
     /^#/{
         lv=length($1);
         sub(/[^ ]+ /,"");
         sub(/\[/,"");
         sub(/\]\([^)]+\)/,"");
         bab=$0;
-        gsub(/ /,"-",bab);
+        gsub(/[ :]+/,"-",bab);
         gsub(/\./,"",bab);
         h=sprintf("%" ((lv-1)*4+1) "s [%s](#%s)", "*",$0,bab);
         next

@@ -21,12 +21,8 @@ from . import util as Util
 from .__init__ import TYPE_CHECKING, EnvParams
 from .authsrv import AuthSrv  # typechk
 from .httpcli import HttpCli
-from .ico import Ico
-from .mtag import HAVE_FFMPEG
-from .th_cli import ThumbCli
-from .th_srv import HAVE_PIL, HAVE_VIPS
 from .u2idx import U2idx
-from .util import HMaccas, NetMap, shut_socket
+from .util import HMaccas, NetMap, min_ex, shut_socket
 
 if True:  # pylint: disable=using-constant-test
     from typing import Optional, Pattern, Union
@@ -62,15 +58,12 @@ class HttpConn(object):
         self.ipu_iu: Optional[dict[str, str]] = hsrv.ipu_iu
         self.ipu_nm: Optional[NetMap] = hsrv.ipu_nm
         self.ipa_nm: Optional[NetMap] = hsrv.ipa_nm
+        self.ipar_nm: Optional[NetMap] = hsrv.ipar_nm
         self.xff_nm: Optional[NetMap] = hsrv.xff_nm
         self.xff_lan: NetMap = hsrv.xff_lan  # type: ignore
         self.iphash: HMaccas = hsrv.broker.iphash
         self.bans: dict[str, int] = hsrv.bans
         self.aclose: dict[str, int] = hsrv.aclose
-
-        enth = (HAVE_PIL or HAVE_VIPS or HAVE_FFMPEG) and not self.args.no_thumb
-        self.thumbcli: Optional[ThumbCli] = ThumbCli(hsrv) if enth else None  # mypy404
-        self.ico: Ico = Ico(self.args)  # mypy404
 
         self.t0: float = time.time()  # mypy404
         self.freshen_pwd: float = 0.0
@@ -78,11 +71,9 @@ class HttpConn(object):
         self.nreq: int = -1  # mypy404
         self.nbyte: int = 0  # mypy404
         self.u2idx: Optional[U2idx] = None
+        self.lf_url: Optional[Pattern[str]] = self.args.lf_url
         self.log_func: "Util.RootLogger" = hsrv.log  # mypy404
         self.log_src: str = "httpconn"  # mypy404
-        self.lf_url: Optional[Pattern[str]] = (
-            re.compile(self.args.lf_url) if self.args.lf_url else None
-        )  # mypy404
         self.set_rproxy()
 
     def shutdown(self) -> None:
@@ -166,7 +157,7 @@ class HttpConn(object):
             try:
                 assert ssl  # type: ignore  # !rm
                 ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                ctx.load_cert_chain(self.args.cert)
+                ctx.load_cert_chain(self.args.cert, self.args.certkey)
                 if self.args.ssl_ver:
                     ctx.options &= ~self.args.ssl_flags_en
                     ctx.options |= self.args.ssl_flags_de
@@ -203,12 +194,12 @@ class HttpConn(object):
             except Exception as ex:
                 em = str(ex)
 
-                if "ALERT_CERTIFICATE_UNKNOWN" in em:
-                    # android-chrome keeps doing this
-                    pass
+                if "ALERT_" in em:
+                    self.log("client refused our TLS cert or config: " + em, c=6)
 
                 else:
-                    self.log("handshake\033[0m " + em, c=5)
+                    t = "https-handshake failed, probably due to client:\n"
+                    self.log(t + min_ex(), c=5)
 
                 return
 
@@ -220,6 +211,21 @@ class HttpConn(object):
             self.cli = HttpCli(self)
             if not self.cli.run():
                 return
+
+            if self.sr.te == 1:
+                self.log("closing socket (leftover TE)", "90")
+                return
+
+            if (
+                "content-length" in self.cli.headers
+                and int(self.cli.headers["content-length"]) != self.sr.nb
+            ):
+                self.log("closing socket (CL mismatch)", "90")
+                return
+
+            # note: proxies reject PUT sans Content-Length; illegal for HTTP/1.1
+
+            self.sr.nb = self.sr.te = 0
 
             if self.u2idx:
                 self.hsrv.put_u2idx(str(self.addr), self.u2idx)

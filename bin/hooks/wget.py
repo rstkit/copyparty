@@ -47,6 +47,9 @@ while you're in the /inc folder (or any folder below there)
 def main():
     inf = json.loads(sys.argv[1])
     url = inf["txt"]
+    if url.startswith("upload-queue-empty;"):
+        return
+
     if "://" not in url:
         url = "https://" + url
 
@@ -66,7 +69,7 @@ def main():
     try:
         sp.check_call(cmd)
     except:
-        t = "-- FAILED TO DONWLOAD " + name
+        t = "-- FAILED TO DOWNLOAD " + name
         print(f"{t}\n", end="")
         open(t, "wb").close()
 

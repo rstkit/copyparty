@@ -17,6 +17,7 @@ from .util import (
     FFMPEG_URL,
     REKOBO_LKEY,
     VF_CAREFUL,
+    expand_osenv_c,
     fsenc,
     gzip,
     min_ex,
@@ -29,7 +30,7 @@ from .util import (
 )
 
 if True:  # pylint: disable=using-constant-test
-    from typing import Any, Optional, Union
+    from typing import IO, Any, Optional, Union
 
     from .util import NamedLogger, RootLogger
 
@@ -64,8 +65,11 @@ def have_ff(scmd: str) -> bool:
 HAVE_FFMPEG = not os.environ.get("PRTY_NO_FFMPEG") and have_ff("ffmpeg")
 HAVE_FFPROBE = not os.environ.get("PRTY_NO_FFPROBE") and have_ff("ffprobe")
 
-CBZ_PICS = set("png jpg jpeg gif bmp tga tif tiff webp avif".split())
+CBZ_PICS = set("png jpg jpeg gif bmp tga tif tiff webp avif jxl".split())
 CBZ_01 = re.compile(r"(^|[^0-9v])0+[01]\b")
+
+FMT_AU = set("mp3 ogg flac wav".split())
+M4A = set("aac m4a m4b m4r".split())
 
 
 class MParser(object):
@@ -83,7 +87,7 @@ class MParser(object):
 
         while True:
             try:
-                bp = os.path.expanduser(args)
+                bp = os.path.expanduser(expand_osenv_c(args))
                 if WINDOWS:
                     bp = uncyg(bp)
 
@@ -130,6 +134,7 @@ class MParser(object):
 def au_unpk(
     log: "NamedLogger", fmt_map: dict[str, str], abspath: str, vn: Optional[VFS] = None
 ) -> str:
+    fd = 0
     ret = ""
     maxsz = 1024 * 1024 * 64
     try:
@@ -166,19 +171,24 @@ def au_unpk(
             znil = [x for x in znil if "cover" in x[0]] or znil
             znil = [x for x in znil if CBZ_01.search(x[0])] or znil
             t = "cbz: %d files, %d hits" % (nf, len(znil))
+            if not znil:
+                raise Exception("no images inside cbz")
             using = sorted(znil)[0][1].filename
             if znil:
                 t += ", using " + using
             log(t)
-            if not znil:
-                raise Exception("no images inside cbz")
             fi = zf.open(using)
+
+        elif pk == "epub":
+            fi = get_cover_from_epub(log, abspath)
+            assert fi  # !rm
 
         else:
             raise Exception("unknown compression %s" % (pk,))
 
         fsz = 0
         with os.fdopen(fd, "wb") as fo:
+            fd = 0
             while True:
                 buf = fi.read(32768)
                 if not buf:
@@ -193,17 +203,21 @@ def au_unpk(
         return ret
 
     except Exception as ex:
+        if fd:
+            os.close(fd)
         if ret:
-            t = "failed to decompress audio file %r: %r"
+            t = "failed to decompress file %r: %r"
             log(t % (abspath, ex))
             wunlink(log, ret, vn.flags if vn else VF_CAREFUL)
+            return ""
 
         return abspath
 
 
 def ffprobe(
     abspath: str, timeout: int = 60
-) -> tuple[dict[str, tuple[int, Any]], dict[str, list[Any]]]:
+) -> tuple[dict[str, tuple[int, Any]], dict[str, list[Any]], list[Any], dict[str, Any]]:
+    # ffprobe -hide_banner -show_streams -show_format --
     cmd = [
         b"ffprobe",
         b"-hide_banner",
@@ -217,8 +231,17 @@ def ffprobe(
     return parse_ffprobe(so)
 
 
-def parse_ffprobe(txt: str) -> tuple[dict[str, tuple[int, Any]], dict[str, list[Any]]]:
-    """ffprobe -show_format -show_streams"""
+def parse_ffprobe(
+    txt: str,
+) -> tuple[dict[str, tuple[int, Any]], dict[str, list[Any]], list[Any], dict[str, Any]]:
+    """
+    txt: output from ffprobe -show_format -show_streams
+    returns:
+     * normalized tags
+     * original/raw tags
+     * list of streams
+     * format props
+    """
     streams = []
     fmt = {}
     g = {}
@@ -242,8 +265,8 @@ def parse_ffprobe(txt: str) -> tuple[dict[str, tuple[int, Any]], dict[str, list[
     ret: dict[str, Any] = {}  # processed
     md: dict[str, list[Any]] = {}  # raw tags
 
-    is_audio = fmt.get("format_name") in ["mp3", "ogg", "flac", "wav"]
-    if fmt.get("filename", "").split(".")[-1].lower() in ["m4a", "aac"]:
+    is_audio = fmt.get("format_name") in FMT_AU
+    if fmt.get("filename", "").split(".")[-1].lower() in M4A:
         is_audio = True
 
     # if audio file, ensure audio stream appears first
@@ -270,6 +293,8 @@ def parse_ffprobe(txt: str) -> tuple[dict[str, tuple[int, Any]], dict[str, list[
                 ["channel_layout", "chs"],
                 ["sample_rate", ".hz"],
                 ["bit_rate", ".aq"],
+                ["bits_per_sample", ".bps"],
+                ["bits_per_raw_sample", ".bprs"],
                 ["duration", ".dur"],
             ]
 
@@ -309,7 +334,7 @@ def parse_ffprobe(txt: str) -> tuple[dict[str, tuple[int, Any]], dict[str, list[
                 ret[rk] = v1
 
     if ret.get("vc") == "ansi":  # shellscript
-        return {}, {}
+        return {}, {}, [], {}
 
     for strm in streams:
         for sk, sv in strm.items():
@@ -358,7 +383,83 @@ def parse_ffprobe(txt: str) -> tuple[dict[str, tuple[int, Any]], dict[str, list[
     zero = int("0")
     zd = {k: (zero, v) for k, v in ret.items()}
 
-    return zd, md
+    return zd, md, streams, fmt
+
+
+def get_cover_from_epub(log: "NamedLogger", abspath: str) -> Optional[IO[bytes]]:
+    import zipfile
+
+    from .dxml import parse_xml
+
+    try:
+        from urlparse import urljoin  # type: ignore  # Python2
+    except ImportError:
+        from urllib.parse import urljoin  # Python3
+
+    with zipfile.ZipFile(abspath, "r") as z:
+        # First open the container file to find the package document (.opf file)
+        try:
+            container_root = parse_xml(z.read("META-INF/container.xml").decode())
+        except KeyError:
+            log("epub: no container file found in %s" % (abspath,))
+            return None
+
+        # https://www.w3.org/TR/epub-33/#sec-container.xml-rootfile-elem
+        container_ns = {"": "urn:oasis:names:tc:opendocument:xmlns:container"}
+        # One file could contain multiple package documents, default to the first one
+        rootfile_path = container_root.find("./rootfiles/rootfile", container_ns).get(
+            "full-path"
+        )
+
+        # Then open the first package document to find the path of the cover image
+        try:
+            package_root = parse_xml(z.read(rootfile_path).decode())
+        except KeyError:
+            log("epub: no package document found in %s" % (abspath,))
+            return None
+
+        # https://www.w3.org/TR/epub-33/#sec-package-doc
+        package_ns = {"": "http://www.idpf.org/2007/opf"}
+        # https://www.w3.org/TR/epub-33/#sec-cover-image
+        coverimage_path_node = package_root.find(
+            "./manifest/item[@properties='cover-image']", package_ns
+        )
+        if coverimage_path_node is not None:
+            coverimage_path = coverimage_path_node.get("href")
+        else:
+            # This might be an EPUB2 file, try the legacy way of specifying covers
+            coverimage_path = _get_cover_from_epub2(log, package_root, package_ns)
+
+        if not coverimage_path:
+            raise Exception("no cover inside epub")
+
+        # This url is either absolute (in the .epub) or relative to the package document
+        adjusted_cover_path = urljoin(rootfile_path, coverimage_path)
+
+        try:
+            return z.open(adjusted_cover_path)
+        except KeyError:
+            t = "epub: cover specified in package document, but doesn't exist: %s"
+            log(t % (adjusted_cover_path,))
+
+
+def _get_cover_from_epub2(
+    log: "NamedLogger", package_root, package_ns
+) -> Optional[str]:
+    # <meta name="cover" content="id-to-cover-image"> in <metadata>, then
+    # <item> in <manifest>
+    xn = package_root.find("./metadata/meta[@name='cover']", package_ns)
+    cover_id = xn.get("content") if xn is not None else None
+
+    if not cover_id:
+        return None
+
+    for node in package_root.iterfind("./manifest/item", package_ns):
+        if node.get("id") == cover_id:
+            cover_path = node.get("href")
+            return cover_path
+
+    return None
 
 
 class MTag(object):
@@ -371,6 +472,8 @@ class MTag(object):
             "ffprobe" if args.no_mutagen or (HAVE_FFPROBE and EXE) else "mutagen"
         )
         self.can_ffprobe = HAVE_FFPROBE and not args.no_mtag_ff
+        self.read_xattrs = args.have_db_xattr
+        self.get = self._get_xattr if self.read_xattrs else self._get_main
         mappings = args.mtm
         or_ffprobe = " or FFprobe"
 
@@ -392,7 +495,13 @@ class MTag(object):
                 msg = "found FFprobe but it was disabled by --no-mtag-ff"
                 self.log(msg, c=3)
 
+        if self.read_xattrs and not self.usable:
+            t = "don't have the necessary dependencies to read conventional media tags, but will read xattrs"
+            self.log(t)
+            self.usable = True
+
         if not self.usable:
+            self._get = None
             if EXE:
                 t = "copyparty.exe cannot use mutagen; need ffprobe.exe to read media tags: "
                 self.log(t + FFMPEG_URL)
@@ -424,13 +533,12 @@ class MTag(object):
                 "album-artist",
                 "tpe2",
                 "aart",
-                "conductor",
                 "organization",
                 "band",
             ],
             ".tn": ["tracknumber", "trck", "trkn", "track"],
             "genre": ["genre", "tcon", "\u00a9gen"],
-            "date": [
+            "tdate": [
                 "original-release-date",
                 "release-date",
                 "date",
@@ -552,12 +660,44 @@ class MTag(object):
 
         return r1
 
-    def get(self, abspath: str) -> dict[str, Union[str, float]]:
+    def _get_xattr(
+        self, abspath: str, vf: dict[str, Any]
+    ) -> dict[str, Union[str, float]]:
+        ret = self._get_main(abspath, vf) if self._get else {}
+        if "db_xattr_no" in vf:
+            try:
+                neg = vf["db_xattr_no"]
+                zsl = os.listxattr(abspath)
+                zsl = [x for x in zsl if x not in neg]
+                for xattr in zsl:
+                    zb = os.getxattr(abspath, xattr)
+                    ret[xattr] = zb.decode("utf-8", "replace")
+            except:
+                self.log("failed to read xattrs from [%s]\n%s" % (abspath, min_ex()), 3)
+        elif "db_xattr_yes" in vf:
+            for xattr in vf["db_xattr_yes"]:
+                if "=" in xattr:
+                    xattr, name = xattr.split("=", 1)
+                else:
+                    name = xattr
+                try:
+                    zs = os.getxattr(abspath, xattr)
+                    ret[name] = zs.decode("utf-8", "replace")
+                except:
+                    pass
+        return ret
+
+    def _get_main(
+        self, abspath: str, vf: dict[str, Any]
+    ) -> dict[str, Union[str, float]]:
         ext = abspath.split(".")[-1].lower()
         if ext not in self.args.au_unpk:
             return self._get(abspath)
 
         ap = au_unpk(self.log, self.args.au_unpk, abspath)
+        if not ap:
+            return {}
+
         ret = self._get(ap)
         if ap != abspath:
             wunlink(self.log, ap, VF_CAREFUL)
@@ -629,7 +769,7 @@ class MTag(object):
         if not bos.path.isfile(abspath):
             return {}
 
-        ret, md = ffprobe(abspath, self.args.mtag_to)
+        ret, md, _, _ = ffprobe(abspath, self.args.mtag_to)
 
         if self.args.mtag_vv:
             for zd in (ret, dict(md)):
@@ -663,6 +803,9 @@ class MTag(object):
             ap = abspath
 
         ret: dict[str, Any] = {}
+        if not ap:
+            return ret
+
         for tagname, parser in sorted(parsers.items(), key=lambda x: (x[1].pri, x[0])):
             try:
                 cmd = [parser.bin, ap]

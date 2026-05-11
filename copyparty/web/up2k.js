@@ -1,5 +1,6 @@
 "use strict";
 
+var J_U2K = 1;
 
 (function () {
     var x = sread('nosubtle');
@@ -50,7 +51,7 @@ catch (ex) {
     }
     catch (ex) {
         console.log('up2k init failed:', ex);
-        toast.err(10, 'could not initialze up2k\n\n' + basenames(ex));
+        toast.err(10, 'could not initialize up2k\n\n' + basenames(ex));
     }
 }
 treectl.onscroll();
@@ -268,7 +269,7 @@ function U2pvis(act, btns, uc, st) {
             nb = fo.bt * (++fo.nh / fo.cb.length),
             p = r.perc(nb, 0, fobj.size, fobj.t_hashing);
 
-        fo.hp = f2f(p[0], 2) + '%, ' + p[1] + ', ' + f2f(p[2], 2) + ' MB/s';
+        fo.hp = f2f(p[0], 2) + '%, ' + p[1] + ', ' + f2f(p[2], 2) + ' MiB/s';
         if (!r.is_act(fo.in))
             return;
 
@@ -288,7 +289,7 @@ function U2pvis(act, btns, uc, st) {
             return;
 
         var p = r.perc(fo.bd, fo.bd0, fo.bt, fobj.t_uploading);
-        fo.hp = f2f(p[0], 2) + '%, ' + p[1] + ', ' + f2f(p[2], 2) + ' MB/s';
+        fo.hp = f2f(p[0], 2) + '%, ' + p[1] + ', ' + f2f(p[2], 2) + ' MiB/s';
 
         if (!r.is_act(fo.in))
             return;
@@ -732,7 +733,7 @@ function Donut(uc, st) {
         tstrober = setInterval(strobe, 300);
 
         if (uc.upsfx && actx && actx.state != 'suspended')
-            sfx();
+            sfx_nice();
 
         // firefox may forget that filedrops are user-gestures so it can skip this:
         if (uc.upnag && Notification && Notification.permission == 'granted')
@@ -745,8 +746,10 @@ function Donut(uc, st) {
         if (!txt)
             clearInterval(tstrober);
     }
+}
 
-    function sfx() {
+function sfx_nice() {
+    if (true) {
         var osc = actx.createOscillator(),
             gain = actx.createGain(),
             gg = gain.gain,
@@ -798,7 +801,7 @@ function up2k_init(subtle) {
 
     setTimeout(function () {
         if (WebAssembly && !hws.length)
-            fetch(SR + '/.cpr/w.hash.js?_=' + TS);
+            fetch(SR + '/.cpr/w/w.hash.js?_=' + TS);
     }, 1000);
 
     function showmodal(msg) {
@@ -828,7 +831,7 @@ function up2k_init(subtle) {
                 m = L.u_https1 + ' <a href="' + (location + '').replace(':', 's:') + '">' + L.u_https2 + '</a> ' + L.u_https3;
 
             showmodal('<h1>loading ' + fn + '</h1>');
-            import_js(SR + '/.cpr/deps/' + fn, unmodal);
+            import_js(SR + '/.cpr/w/deps/' + fn, unmodal);
 
             if (HTTPS) {
                 // chrome<37 firefox<34 edge<12 opera<24 safari<7
@@ -898,19 +901,19 @@ function up2k_init(subtle) {
     bcfg_bind(uc, 'upnag', 'upnag', false, set_upnag);
     bcfg_bind(uc, 'upsfx', 'upsfx', false, set_upsfx);
 
-    uc.ow = parseInt(sread('u2ow', ['0', '1', '2']) || u2ow);
-    uc.owt = ['🛡️', '🕒', '♻️'];
+    uc.ow = parseInt(sread('u2ow', ['0', '1', '2', '3']) || u2ow);
+    uc.owt = ['🛡️', '🕒', '♻️', '⏭️'];
     function set_ow() {
         QS('label[for="u2ow"]').innerHTML = uc.owt[uc.ow];
         ebi('u2ow').checked  = true; //cosmetic
     }
     ebi('u2ow').onclick = function (e) {
         ev(e);
-        if (++uc.ow > 2)
+        if (++uc.ow > 3)
             uc.ow = 0;
         swrite('u2ow', uc.ow);
         set_ow();
-        if (uc.ow && !has(perms, 'delete'))
+        if (uc.ow && uc.ow !== 3 &&  !has(perms, 'delete'))
             toast.warn(10, L.u_enoow, 'noow');
         else if (toast.tag == 'noow')
             toast.hide();
@@ -964,6 +967,7 @@ function up2k_init(subtle) {
             "t": 0
         },
         "car": 0,
+        "nre": 0,
         "slow_io": null,
         "oserr": false,
         "modn": 0,
@@ -1466,7 +1470,7 @@ function up2k_init(subtle) {
             }
 
             for (var a = 0; a < nw; a++)
-                hws.push(new Worker(SR + '/.cpr/w.hash.js?_=' + TS));
+                hws.push(new Worker(SR + '/.cpr/w/w.hash.js?_=' + TS));
 
             if (!subtle)
                 for (var a = 0; a < hws.length; a++)
@@ -1531,7 +1535,7 @@ function up2k_init(subtle) {
 
             pvis.addfile([
                 uc.fsearch ? esc(entry.name) : linksplit(
-                    entry.purl + uricom_enc(entry.name)).join(' / '),
+                    entry.purl + uricom_enc(entry.name), window.up_site).join(' / '),
                 '📐 ' + L.u_hashing,
                 ''
             ], entry.size, draw_each);
@@ -1571,8 +1575,8 @@ function up2k_init(subtle) {
     more_one_file();
 
     function linklist() {
-        var ret = [],
-            base = document.location.origin.replace(/\/$/, '');
+		var ret = [],
+            base = (window.up_site || location.origin).replace(/\/$/, '');
 
         for (var a = 0; a < st.files.length; a++) {
             var t = st.files[a],
@@ -1595,7 +1599,7 @@ function up2k_init(subtle) {
         ev(e);
         var txt = linklist();
         cliptxt(txt + '\n', function () {
-            toast.inf(5, un_clip.format(txt.split('\n').length));
+            toast.inf(5, L.un_clip.format(txt.split('\n').length));
         });
     };
 
@@ -1630,7 +1634,7 @@ function up2k_init(subtle) {
         }
 
         if (!nhash) {
-            var h = L.u_etadone.format(humansize(st.bytes.hashed), pvis.ctr.ok + pvis.ctr.ng);
+            var h = L.u_etadone.format(humansize(st.bytes.hashed, 2), pvis.ctr.ok + pvis.ctr.ng);
             if (st.eta.h !== h) {
                 st.eta.h = ebi('u2etah').innerHTML = h;
                 console.log('{0} hash, {1} up, {2} busy'.format(
@@ -1641,7 +1645,7 @@ function up2k_init(subtle) {
         }
 
         if (!nsend && !nhash) {
-            var h = L.u_etadone.format(humansize(st.bytes.uploaded), pvis.ctr.ok + pvis.ctr.ng);
+            var h = L.u_etadone.format(humansize(st.bytes.uploaded, 2), pvis.ctr.ok + pvis.ctr.ng);
 
             if (st.eta.u !== h)
                 st.eta.u = ebi('u2etau').innerHTML = h;
@@ -1706,7 +1710,7 @@ function up2k_init(subtle) {
 
             donut.eta = eta;
             st.eta[eid] = '{0}, {1}/s, {2}'.format(
-                humansize(rem), humansize(bps, 1), humantime(eta));
+                humansize(rem, 2), humansize(bps, 1), humantime(eta));
 
             if (!etaskip)
                 ebi(hid).innerHTML = st.eta[eid];
@@ -1783,8 +1787,7 @@ function up2k_init(subtle) {
     }
 
     var tasker = (function () {
-        var running = false,
-            was_busy = false;
+        var running = false;
 
         var defer = function () {
             running = false;
@@ -1801,7 +1804,17 @@ function up2k_init(subtle) {
             while (true) {
                 var now = Date.now(),
                     blocktime = now - r.tact,
-                    is_busy = st.car < st.files.length;
+                    was_busy = !!st.is_busy,
+                    is_busy = !!(  // gzip take the wheel
+                        st.car < st.files.length ||
+                        st.busy.hash.length ||
+                        st.todo.hash.length ||
+                        st.busy.handshake.length ||
+                        st.todo.handshake.length ||
+                        st.busy.upload.length ||
+                        st.todo.upload.length ||
+                        st.busy.head.length ||
+                        st.todo.head.length);
 
                 if (blocktime > 2500)
                     console.log('main thread blocked for ' + blocktime);
@@ -1809,7 +1822,16 @@ function up2k_init(subtle) {
                 r.tact = now;
 
                 if (was_busy && !is_busy) {
-                    for (var a = 0; a < st.files.length; a++) {
+                    var nre = 0, nf = 0;
+                    for (var a = 0; a < st.files.length; a++)
+                        if (st.files[a].want_recheck)
+                            nre++;
+                    console.log('nre', nre, 'st', st.nre);
+                    if (st.nre != nre) {
+                        st.nre = nre;
+                        nf = st.files.length;
+                    }
+                    for (var a = 0; a < nf; a++) {
                         var t = st.files[a];
                         if (t.want_recheck) {
                             t.rechecks++;
@@ -1817,7 +1839,7 @@ function up2k_init(subtle) {
                             push_t(st.todo.handshake, t);
                         }
                     }
-                    is_busy = st.todo.handshake.length;
+                    is_busy = !!st.todo.handshake.length;
                     try {
                         if (!is_busy && !uc.fsearch && !msel.getsel().length && (!mp.au || mp.au.paused))
                             treectl.goto();
@@ -1826,7 +1848,7 @@ function up2k_init(subtle) {
                 }
 
                 if (was_busy != is_busy) {
-                    st.is_busy = was_busy = is_busy;
+                    st.is_busy = is_busy;
 
                     window[(is_busy ? "add" : "remove") +
                         "EventListener"]("beforeunload", warn_uploader_busy);
@@ -1947,7 +1969,7 @@ function up2k_init(subtle) {
 
         for (var a = 0; a < st.files.length; a++) {
             var t = st.files[a];
-            if (t.want_recheck && !t.rechecks)
+            if (t.want_recheck && t.rechecks < 999)
                 return;
         }
 
@@ -1978,6 +2000,18 @@ function up2k_init(subtle) {
 
         if (pvis.act == 'bz')
             pvis.changecard('bz');
+
+        var n = st.files.length - 1,
+            f = n >= 0 && st.files[n];
+        if (f && !f.srch) {
+            var xhr = new XHR(),
+                ct = 'application/x-www-form-urlencoded;charset=UTF-8';
+            xhr.open('POST', f.purl, true);
+            xhr.setRequestHeader('Content-Type', ct);
+            if (xhr.overrideMimeType)
+                xhr.overrideMimeType('Content-Type', ct);
+            xhr.send('msg=upload-queue-empty;' + uricom_enc(f.name));
+        }
     }
 
     function chill(t) {
@@ -2238,11 +2272,17 @@ function up2k_init(subtle) {
             busy = {},
             nbusy = 0,
             init = 0,
+            ninit = 0,
             hashtab = {},
             mem = (MOBILE ? 128 : 256) * 1024 * 1024;
 
         if (!hws_ok)
-            init = setTimeout(function() {
+            init = setInterval(function() {
+                if (ninit < hws_ok) {
+                    ninit = hws_ok;
+                    return toast.inf(10, 'initializing webworkers ({0}/{1})'.format(hws_ok, hws.length), "iwwt");
+                }
+                clearInterval(init);
                 hws_ng = true;
                 toast.warn(30, 'webworkers failed to start\n\nwill be a bit slower due to\nhashing on main-thread');
                 apop(st.busy.hash, t);
@@ -2292,12 +2332,17 @@ function up2k_init(subtle) {
         }
 
         function onmsg(d) {
+            if (hws_ng)
+                return;
+
             d = d.data;
             var k = d[0];
 
             if (k == "pong")
                 if (++hws_ok == hws.length) {
-                    clearTimeout(init);
+                    clearInterval(init);
+                    if (toast.tag == 'iwwt')
+                        toast.hide();
                     go_next();
                 }
 
@@ -2511,13 +2556,13 @@ function up2k_init(subtle) {
                         var msg = [];
                         for (var a = 0, aa = Math.min(20, response.hits.length); a < aa; a++) {
                             var hit = response.hits[a],
-                                tr = unix2iso(hit.ts),
-                                tu = unix2iso(t.lmod),
+                                tr = unix2ui(hit.ts),
+                                tu = unix2ui(t.lmod),
                                 diff = parseInt(t.lmod) - parseInt(hit.ts),
                                 cdiff = (Math.abs(diff) <= 2) ? '3c0' : 'f0b',
                                 sdiff = '<span style="color:#' + cdiff + '">diff ' + diff;
 
-                            msg.push(linksplit(hit.rp).join(' / ') + '<br /><small>' + tr + ' (srv), ' + tu + ' (You), ' + sdiff + '</small></span>');
+                            msg.push(linksplit(hit.rp, window.up_site).join(' / ') + '<br /><small>' + tr + ' (srv), ' + tu + ' (You), ' + sdiff + '</small></span>');
                         }
                         msg = msg.join('<br />\n');
                     }
@@ -2551,7 +2596,7 @@ function up2k_init(subtle) {
                         url += '?k=' + fk;
                     }
 
-                    pvis.seth(t.n, 0, linksplit(url).join(' / '));
+                    pvis.seth(t.n, 0, linksplit(url, window.up_site).join(' / '));
                 }
 
                 var chunksize = get_chunksize(t.size),
@@ -2646,12 +2691,10 @@ function up2k_init(subtle) {
                     var spd1 = (t.size / ((t.t_hashed - t.t_hashing) / 1000.)) / (1024 * 1024.),
                         spd2 = (t.size / ((t.t_uploaded - t.t_uploading) / 1000.)) / (1024 * 1024.);
 
-                    pvis.seth(t.n, 2, 'hash {0}, up {1} MB/s'.format(
+                    pvis.seth(t.n, 2, 'hash {0}, up {1} MiB/s'.format(
                         f2f(spd1, 2), !isNum(spd2) ? '--' : f2f(spd2, 2)));
 
                     pvis.move(t.n, 'ok');
-                    if (!pvis.ctr.bz && !pvis.ctr.q)
-                        uptoast();
                 }
                 else {
                     if (t.t_uploaded)
@@ -2685,16 +2728,18 @@ function up2k_init(subtle) {
                 var err_pend = rsp.indexOf('partial upload exists at a different') + 1,
                     err_srcb = rsp.indexOf('source file busy; please try again') + 1,
                     err_plug = rsp.indexOf('upload blocked by x') + 1,
-                    err_dupe = rsp.indexOf('upload rejected, file already exists') + 1;
+                    err_dupe = rsp.indexOf('upload rejected, file already exists') + 1,
+                    err_exists = rsp.indexOf('upload rejected, a file with that name already exists') + 1;
 
-                if (err_pend || err_srcb || err_plug || err_dupe) {
+                if (err_pend || err_srcb || err_plug || err_dupe || err_exists) {
                     err = rsp;
                     ofs = err.indexOf('\n/');
                     if (ofs !== -1) {
                         err = err.slice(0, ofs + 1) + linksplit(err.slice(ofs + 2).trimEnd()).join(' / ');
                     }
-                    if (!t.rechecks && (err_pend || err_srcb)) {
+                    if (!t.rechecks)
                         t.rechecks = 0;
+                    if (t.rechecks < 999 && (err_pend || err_srcb)) {
                         t.want_recheck = true;
                         if (st.busy.upload.length || st.busy.handshake.length || st.bytes.uploaded) {
                             err = L.u_dupdefer;
@@ -2750,6 +2795,8 @@ function up2k_init(subtle) {
                 req.replace = 'mt';
             if (uc.ow == 2)
                 req.replace = true;
+            if (uc.ow == 3)
+                req.replace = 'skip';
         }
 
         xhr.open('POST', t.purl, true);
@@ -2811,7 +2858,7 @@ function up2k_init(subtle) {
         if (!t.t_uploading)
             t.t_uploading = Date.now();
 
-        pvis.seth(t.n, 1, "🚀 send");
+        pvis.seth(t.n, 1, "🚀 " + L.ul_send);
 
         var chunksize = get_chunksize(t.size),
             car = pcar * chunksize,
@@ -3017,10 +3064,12 @@ function up2k_init(subtle) {
         if (anymod(e))
             return;
 
-        if (e.code == 'ArrowUp')
+        var k = e.key || e.code;
+
+        if (k == 'ArrowUp')
             bumpthread(1);
 
-        if (e.code == 'ArrowDown')
+        if (k == 'ArrowDown')
             bumpthread(-1);
     }
 
@@ -3083,7 +3132,8 @@ function up2k_init(subtle) {
     ebi('u2szg').addEventListener('blur', read_u2sz);
     ebi('u2szg').onkeydown = function (e) {
         if (anymod(e)) return;
-        var n = e.code == 'ArrowUp' ? 1 : e.code == 'ArrowDown' ? -1 : 0;
+        var k = e.key || e.code,
+            n = k == 'ArrowUp' ? 1 : k == 'ArrowDown' ? -1 : 0;
         if (!n) return;
         this.value = parseInt(this.value) + n;
         read_u2sz();
@@ -3160,7 +3210,8 @@ function up2k_init(subtle) {
 
     function kd_life(e) {
         var el = e.target,
-            d = e.code == 'ArrowUp' ? 1 : e.code == 'ArrowDown' ? -1 : 0;
+            k = e.key || e.code,
+            d = k == 'ArrowUp' ? 1 : k == 'ArrowDown' ? -1 : 0;
 
         if (anymod(e) || !d)
             return;
@@ -3187,7 +3238,7 @@ function up2k_init(subtle) {
             return;
 
         try {
-            ebi('lifew').innerHTML = unix2iso((st.lifetime || lifetime) +
+            ebi('lifew').innerHTML = unix2ui((st.lifetime || lifetime) +
                 Date.now() / 1000 - new Date().getTimezoneOffset() * 60
             ).replace(' ', ', ').slice(0, -3);
         }
@@ -3401,6 +3452,8 @@ if (QS('#op_up2k.act'))
     goto_up2k();
 
 apply_perms({ "perms": perms, "frand": frand, "u2ts": u2ts });
+if (ls0)
+    fileman.render();
 
 
 (function () {
@@ -3412,3 +3465,5 @@ apply_perms({ "perms": perms, "frand": frand, "u2ts": u2ts });
         }
         catch (ex) { }
 })();
+
+J_U2K = 2;

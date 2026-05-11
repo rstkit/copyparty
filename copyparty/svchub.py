@@ -2,7 +2,9 @@
 from __future__ import print_function, unicode_literals
 
 import argparse
+import atexit
 import errno
+import json
 import logging
 import os
 import re
@@ -26,20 +28,24 @@ if True:  # pylint: disable=using-constant-test
     from typing import Any, Optional, Union
 
 from .__init__ import ANYWIN, EXE, MACOS, PY2, TYPE_CHECKING, E, EnvParams, unicode
-from .authsrv import BAD_CFG, AuthSrv
+from .__version__ import S_VERSION, VERSION
+from .authsrv import BAD_CFG, AuthSrv, derive_args, n_du_who, n_ver_who
 from .bos import bos
 from .cert import ensure_cert
+from .fsutil import ramdisk_chk
 from .mtag import HAVE_FFMPEG, HAVE_FFPROBE, HAVE_MUTAGEN
 from .pwhash import HAVE_ARGON2
+from .sutil import close_pools as sutil_close_pools
 from .tcpsrv import TcpSrv
 from .th_srv import (
-    HAVE_AVIF,
+    H_PIL_AVIF,
+    H_PIL_HEIF,
+    H_PIL_WEBP,
     HAVE_FFMPEG,
     HAVE_FFPROBE,
-    HAVE_HEIF,
     HAVE_PIL,
+    HAVE_RAW,
     HAVE_VIPS,
-    HAVE_WEBP,
     ThumbSrv,
 )
 from .up2k import Up2k
@@ -51,6 +57,8 @@ from .util import (
     HAVE_PSUTIL,
     HAVE_SQLITE3,
     HAVE_ZMQ,
+    LOG,
+    RE_ANSI,
     URL_BUG,
     UTC,
     VERSIONS,
@@ -60,19 +68,24 @@ from .util import (
     HMaccas,
     ODict,
     alltrace,
-    ansi_re,
     build_netmap,
     expat_ver,
     gzip,
+    html_escape,
+    load_ipr,
     load_ipu,
     lock_file,
+    lprinted,
     min_ex,
     mp,
     odfusion,
     pybin,
+    read_utf8,
     start_log_thrs,
     start_stackmon,
+    termsize,
     ub64enc,
+    umktrans,
 )
 
 if HAVE_SQLITE3:
@@ -87,6 +100,11 @@ if TYPE_CHECKING:
 
 if PY2:
     range = xrange  # type: ignore
+
+if PY2:
+    from urllib2 import Request, urlopen
+else:
+    from urllib.request import Request, urlopen
 
 
 VER_IDP_DB = 1
@@ -110,13 +128,13 @@ class SvcHub(object):
         args: argparse.Namespace,
         dargs: argparse.Namespace,
         argv: list[str],
-        printed: str,
     ) -> None:
         self.args = args
         self.dargs = dargs
         self.argv = argv
         self.E: EnvParams = args.E
         self.no_ansi = args.no_ansi
+        self.flo = args.flo
         self.tz = UTC if args.log_utc else None
         self.logf: Optional[typing.TextIO] = None
         self.logf_base_fn = ""
@@ -130,6 +148,7 @@ class SvcHub(object):
         self.nsigs = 3
         self.retcode = 0
         self.httpsrv_up = 0
+        self.qr_tsz = None
 
         self.log_mutex = threading.Lock()
         self.cday = 0
@@ -151,8 +170,12 @@ class SvcHub(object):
             args.unpost = 0
             args.no_del = True
             args.no_mv = True
-            args.hardlink = True
+            args.reflink = True
+            args.dav_auth = True
             args.vague_403 = True
+            args.no_html = True
+            args.no_readme = True
+            args.no_logues = True
             args.nih = True
 
         if args.s:
@@ -178,9 +201,32 @@ class SvcHub(object):
         self.log_div = 10 ** (6 - args.log_tdec)
         self.log_efmt = "%02d:%02d:%02d.%0{}d".format(args.log_tdec)
         self.log_dfmt = "%04d-%04d-%06d.%0{}d".format(args.log_tdec)
-        self.log = self._log_disabled if args.q else self._log_enabled
+
+        if args.q:
+            self.log = self._log_disabled
+        elif args.lo and args.flo == 2 and not self.no_ansi:
+            self.log = self._log_en_f2
+        else:
+            self.log = self._log_enabled
+
+        self.lo1 = self.lo2 = ""
         if args.lo:
-            self._setup_logfile(printed)
+            if "%" in args.lo and "%R" not in args.lo:
+                args.lo += "%R"
+            if not args.rlo:
+                args.lo = args.lo.replace("%R", "")
+            try:
+                self.lo1, self.lo2 = args.lo.split("%R")
+            except:
+                self.lo1 = args.lo
+            try:
+                self.rot_fmt = "%%s%s%%0%sd%s" % (args.rlo[:1], args.rlo[1:2], self.lo2)
+            except:
+                self.rot_fmt = "%s.%d"
+            self._setup_logfile()
+
+        LOG[0] = self.log
+        lprinted[:] = []
 
         lg = logging.getLogger()
         lh = HLog(self.log)
@@ -211,6 +257,10 @@ class SvcHub(object):
             self.log("root", t.format(args.j), c=3)
             args.no_fpool = True
 
+        args.p_nodav = [int(x.strip()) for x in args.p_nodav.split(",") if x]
+        if args.dav_port and args.dav_port not in args.p:
+            args.p.append(args.dav_port)
+
         for name, arg in (
             ("iobuf", "iobuf"),
             ("s-rd-sz", "s_rd_sz"),
@@ -231,6 +281,13 @@ class SvcHub(object):
             t = "WARNING: --s-rd-sz (%d) is larger than --iobuf (%d); this may lead to reduced performance"
             self.log("root", t % (args.s_rd_sz, args.iobuf), 3)
 
+        if args.vc_url:
+            zi = max(1, int(args.vc_age))
+            if zi < 3 and "api.copyparty.eu" in args.vc_url:
+                zi = 3
+                self.log("root", "vc-age too low for copyparty.eu; will use 3 hours")
+            args.vc_age = zi
+
         zs = ""
         if args.th_ram_max < 0.22:
             zs = "generate thumbnails"
@@ -240,8 +297,8 @@ class SvcHub(object):
             t = "WARNING: --th-ram-max is very small (%.2f GiB); will not be able to %s"
             self.log("root", t % (args.th_ram_max, zs), 3)
 
-        if args.chpw and args.idp_h_usr:
-            t = "ERROR: user-changeable passwords is incompatible with IdP/identity-providers; you must disable either --chpw or --idp-h-usr"
+        if args.chpw and args.have_idp_hdrs and "pw" not in args.auth_ord.split(","):
+            t = "ERROR: user-changeable passwords is not compatible with your current configuration. Choose one of these options to fix it:\n option1: disable --chpw\n option2: remove all use of IdP features; --idp-*\n option3: change --auth-ord to something like pw,idp,ipu"
             self.log("root", t, 1)
             raise Exception(t)
 
@@ -256,6 +313,10 @@ class SvcHub(object):
             setattr(args, "ipu_iu", iu)
             setattr(args, "ipu_nm", nm)
 
+        if args.ipr:
+            ipr = load_ipr(self.log, args.ipr, True)
+            setattr(args, "ipr_u", ipr)
+
         for zs in "ah_salt fk_salt dk_salt".split():
             if getattr(args, "show_%s" % (zs,)):
                 self.log("root", "effective %s is %s" % (zs, getattr(args, zs)))
@@ -265,7 +326,7 @@ class SvcHub(object):
             args.no_ses = True
             args.shr = ""
 
-        if args.idp_store and args.idp_h_usr:
+        if args.idp_store and args.have_idp_hdrs:
             self.setup_db("idp")
 
         if not self.args.no_ses:
@@ -279,6 +340,17 @@ class SvcHub(object):
         ch = "abcdefghijklmnopqrstuvwx"[int(args.theme / 2)]
         args.theme = "{0}{1} {0} {1}".format(ch, bri)
 
+        if args.no_stack:
+            args.stack_who = "no"
+
+        if args.nid:
+            args.du_who = "no"
+        args.du_iwho = n_du_who(args.du_who)
+
+        if args.ver and args.ver_who == "no":
+            args.ver_who = "all"
+        args.ver_iwho = n_ver_who(args.ver_who)
+
         if args.nih:
             args.vname = ""
             args.doctitle = args.doctitle.replace(" @ --name", "")
@@ -287,11 +359,16 @@ class SvcHub(object):
         args.doctitle = args.doctitle.replace("--name", args.vname)
         args.bname = args.bname.replace("--name", args.vname) or args.vname
 
+        for zs in "shr_site up_site".split():
+            if getattr(args, zs) == "--site":
+                setattr(args, zs, args.site)
+
         if args.log_fk:
             args.log_fk = re.compile(args.log_fk)
 
         # initiate all services to manage
         self.asrv = AuthSrv(self.args, self.log, dargs=self.dargs)
+        ramdisk_chk(self.asrv)
 
         if args.cgen:
             self.asrv.cgen()
@@ -316,11 +393,13 @@ class SvcHub(object):
 
         self._feature_test()
 
-        decs = {k: 1 for k in self.args.th_dec.split(",")}
+        decs = {k.strip(): 1 for k in self.args.th_dec.split(",")}
         if not HAVE_VIPS:
             decs.pop("vips", None)
         if not HAVE_PIL:
             decs.pop("pil", None)
+        if not HAVE_RAW:
+            decs.pop("raw", None)
         if not HAVE_FFMPEG or not HAVE_FFPROBE:
             decs.pop("ff", None)
 
@@ -334,10 +413,6 @@ class SvcHub(object):
         if not args.no_thumb:
             t = ", ".join(self.args.th_dec) or "(None available)"
             self.log("thumb", "decoder preference: {}".format(t))
-
-            if "pil" in self.args.th_dec and not HAVE_WEBP:
-                msg = "disabling webp thumbnails because either libwebp is not available or your Pillow is too old"
-                self.log("thumb", msg, c=3)
 
             if self.args.th_dec:
                 self.thumbsrv = ThumbSrv(self)
@@ -369,7 +444,10 @@ class SvcHub(object):
                 t = "invalid mp3 transcoding quality [%s] specified; only supports [0] to disable, a CBR value such as [192k], or a CQ/CRF value such as [v2]"
                 raise Exception(t % (args.q_mp3,))
         else:
-            args.au_unpk = {}
+            zss = set(args.th_r_ffa.split(",") + args.th_r_ffv.split(","))
+            args.au_unpk = {
+                k: v for k, v in args.au_unpk.items() if v.split(".")[0] not in zss
+            }
 
         args.th_poke = min(args.th_poke, args.th_maxage, args.ac_maxage)
 
@@ -378,6 +456,11 @@ class SvcHub(object):
             zms += "d"
         if not args.http_only:
             zms += "D"
+
+        if args.sftp:
+            from .sftpd import Sftpd
+
+            self.sftpd: Optional[Sftpd] = None
 
         if args.ftp or args.ftps:
             from .ftpd import Ftpd
@@ -390,7 +473,7 @@ class SvcHub(object):
 
             self.tftpd: Optional[Tftpd] = None
 
-        if args.ftp or args.ftps or args.tftp:
+        if args.sftp or args.ftp or args.ftps or args.tftp:
             Daemon(self.start_ftpd, "start_tftpd")
 
         if args.smb:
@@ -422,11 +505,16 @@ class SvcHub(object):
 
         # create netmaps early to avoid firewall gaps,
         # but the mutex blocks multiprocessing startup
-        for zs in "ipu_iu ftp_ipa_nm tftp_ipa_nm".split():
+        for zs in "ipu_nm ftp_ipa_nm tftp_ipa_nm".split():
             try:
                 getattr(args, zs).mutex = threading.Lock()
             except:
                 pass
+        if args.ipr:
+            for nm in args.ipr_u.values():
+                nm.mutex = threading.Lock()
+
+        self._reload_thumbsrv()
 
     def _db_onfail_ses(self) -> None:
         self.args.no_ses = True
@@ -714,11 +802,27 @@ class SvcHub(object):
     def start_ftpd(self) -> None:
         time.sleep(30)
 
+        if hasattr(self, "sftpd") and not self.sftpd:
+            self.restart_sftpd()
+
         if hasattr(self, "ftpd") and not self.ftpd:
             self.restart_ftpd()
 
         if hasattr(self, "tftpd") and not self.tftpd:
             self.restart_tftpd()
+
+    def restart_sftpd(self) -> None:
+        if not hasattr(self, "sftpd"):
+            return
+
+        from .sftpd import Sftpd
+
+        if self.sftpd:
+            return  # todo
+
+        self.sftpd = Sftpd(self)
+        self.sftpd.run()
+        self.log("root", "started SFTPd")
 
     def restart_ftpd(self) -> None:
         if not hasattr(self, "ftpd"):
@@ -772,19 +876,107 @@ class SvcHub(object):
     def sigterm(self) -> None:
         self.signal_handler(signal.SIGTERM, None)
 
+    def sticky_qr(self) -> None:
+        self._sticky_qr()
+
+    def _unsticky_qr(self, flush=True) -> None:
+        print("\033[s\033[J\033[r\033[u", file=sys.stderr, end="")
+        if flush:
+            sys.stderr.flush()
+
+    def _sticky_qr(self, force: bool = False) -> None:
+        sz = termsize()
+        if self.qr_tsz == sz:
+            if not force:
+                return
+        else:
+            force = False
+
+        if self.qr_tsz:
+            self._unsticky_qr(False)
+        else:
+            atexit.register(self._unsticky_qr)
+
+        tw, th = self.qr_tsz = sz
+        zs1, qr = self.tcpsrv.qr.split("\n", 1)
+        url, colr = zs1.split(" ", 1)
+        nl = len(qr.split("\n"))  # numlines
+        lp = 3 if nl * 2 + 4 < tw else 0  # leftpad
+        lp0 = lp
+        if self.args.qr_pin == 2:
+            url = ""
+        else:
+            while lp and (nl + lp) * 2 + len(url) + 1 > tw:
+                lp -= 1
+            if (nl + lp) * 2 + len(url) + 1 > tw:
+                qr = url + "\n" + qr
+                url = ""
+                nl += 1
+                lp = lp0
+        sh = 1 + th - nl
+        if lp:
+            zs = " " * lp
+            qr = zs + qr.replace("\n", "\n" + zs)
+        if url:
+            url = "%s\033[%d;%dH%s\033[0m" % (colr, sh + 1, (nl + lp) * 2, url)
+        qr = colr + qr
+
+        t = "%s\033[%dA" % ("\n" * nl, nl)
+        t = "%s\033[s\033[1;%dr\033[%dH%s%s\033[u" % (t, sh - 1, sh, qr, url)
+        if not force:
+            self.log("qr", "sticky-qrcode %sx%s,%s" % (tw, th, sh), 6)
+        self.pr(t, file=sys.stderr, end="")
+
+    def _qr_thr(self):
+        qr = self.tcpsrv.qr
+        w8 = self.args.qr_wait
+        if w8:
+            time.sleep(w8)
+            self.log("qr-code", qr)
+        if self.args.qr_stdout:
+            self.pr(self.tcpsrv.qr)
+        if self.args.qr_stderr:
+            self.pr(self.tcpsrv.qr, file=sys.stderr)
+        w8 = self.args.qr_every
+        msg = "%s\033[%dA" % (qr, len(qr.split("\n")))
+        while w8:
+            time.sleep(w8)
+            if self.stopping:
+                break
+            if self.args.qr_pin:
+                self._sticky_qr(True)
+            else:
+                self.log("qr-code", msg)
+        w8 = self.args.qr_winch
+        while w8:
+            time.sleep(w8)
+            if self.stopping:
+                break
+            self._sticky_qr()
+
     def cb_httpsrv_up(self) -> None:
         self.httpsrv_up += 1
         if self.httpsrv_up != self.broker.num_workers:
             return
 
         ar = self.args
-        for _ in range(10 if ar.ftp or ar.ftps else 0):
+        for _ in range(10 if ar.sftp or ar.ftp or ar.ftps else 0):
             time.sleep(0.03)
-            if self.ftpd:
+            if self.ftpd if ar.ftp or ar.ftps else ar.sftp:
                 break
 
         if self.tcpsrv.qr:
-            self.log("qr-code", self.tcpsrv.qr)
+            if self.args.qr_pin:
+                self.sticky_qr()
+            if self.args.qr_wait or self.args.qr_every or self.args.qr_winch:
+                Daemon(self._qr_thr, "qr")
+            else:
+                if not self.args.qr_pin:
+                    self.log("qr-code", self.tcpsrv.qr)
+                if self.args.qr_stdout:
+                    self.pr(self.tcpsrv.qr)
+                if self.args.qr_stderr:
+                    self.pr(self.tcpsrv.qr, file=sys.stderr)
         else:
             self.log("root", "workers OK\n")
 
@@ -803,14 +995,15 @@ class SvcHub(object):
             (HAVE_SQLITE3, "sqlite", "sessions and file/media indexing"),
             (HAVE_PIL, "pillow", "image thumbnails (plenty fast)"),
             (HAVE_VIPS, "vips", "image thumbnails (faster, eats more ram)"),
-            (HAVE_WEBP, "pillow-webp", "create thumbnails as webp files"),
+            (H_PIL_WEBP, "pillow-webp", "create thumbnails as webp files"),
             (HAVE_FFMPEG, "ffmpeg", t_ff + ", good-but-slow image thumbnails"),
             (HAVE_FFPROBE, "ffprobe", t_ff + ", read audio/media tags"),
             (HAVE_MUTAGEN, "mutagen", "read audio tags (ffprobe is better but slower)"),
             (HAVE_ARGON2, "argon2", "secure password hashing (advanced users only)"),
             (HAVE_ZMQ, "pyzmq", "send zeromq messages from event-hooks"),
-            (HAVE_HEIF, "pillow-heif", "read .heif images with pillow (rarely useful)"),
-            (HAVE_AVIF, "pillow-avif", "read .avif images with pillow (rarely useful)"),
+            (H_PIL_HEIF, "pillow-heif", "read .heif pics with pillow (rarely useful)"),
+            (H_PIL_AVIF, "pillow-avif", "read .avif pics with pillow (rarely useful)"),
+            (HAVE_RAW, "rawpy", "read RAW images"),
         ]
         if ANYWIN:
             to_check += [
@@ -850,15 +1043,6 @@ class SvcHub(object):
 
     def _check_env(self) -> None:
         al = self.args
-        try:
-            files = os.listdir(E.cfg)
-        except:
-            files = []
-
-        hits = [x for x in files if x.lower().endswith(".conf")]
-        if hits:
-            t = "WARNING: found config files in [%s]: %s\n  config files are not expected here, and will NOT be loaded (unless your setup is intentionally hella funky)"
-            self.log("root", t % (E.cfg, ", ".join(hits)), 3)
 
         if self.args.no_bauth:
             t = "WARNING: --no-bauth disables support for the Android app; you may want to use --bauth-last instead"
@@ -868,7 +1052,7 @@ class SvcHub(object):
 
         have_tcp = False
         for zs in al.i:
-            if not zs.startswith("unix:"):
+            if not zs.startswith(("unix:", "fd:")):
                 have_tcp = True
         if not have_tcp:
             zb = False
@@ -878,7 +1062,7 @@ class SvcHub(object):
                     setattr(al, zs, False)
                     zb = True
             if zb:
-                t = "only listening on unix-sockets; cannot enable zeroconf/mdns/ssdp as requested"
+                t = "not listening on any ip-addresses (only unix-sockets and/or FDs); cannot enable zeroconf/mdns/ssdp as requested"
                 self.log("root", t, 3)
 
         if not self.args.no_dav:
@@ -889,6 +1073,28 @@ class SvcHub(object):
                     self.args.no_dav = True
                     t = "WARNING:\nDisabling WebDAV support because dxml selftest failed. Please report this bug;\n%s\n...and include the following information in the bug-report:\n%s | expat %s\n"
                     self.log("root", t % (URL_BUG, VERSIONS, expat_ver()), 1)
+
+        if (
+            not E.scfg
+            and not al.unsafe_state
+            and not os.environ.get("PRTY_UNSAFE_STATE")
+        ):
+            t = "because runtime config is currently being stored in an untrusted emergency-fallback location. Please fix your environment so either XDG_CONFIG_HOME or ~/.config can be used instead, or disable this safeguard with --unsafe-state or env-var PRTY_UNSAFE_STATE=1."
+            if not al.no_ses:
+                al.no_ses = True
+                t2 = "A consequence of this misconfiguration is that passwords will now be sent in the HTTP-header of every request!"
+                self.log("root", "WARNING:\nWill disable sessions %s %s" % (t, t2), 1)
+            if al.idp_store == 1:
+                al.idp_store = 0
+                self.log("root", "WARNING:\nDisabling --idp-store %s" % (t,), 3)
+            if al.idp_store:
+                t2 = "ERROR: Cannot enable --idp-store %s" % (t,)
+                self.log("root", t2, 1)
+                raise Exception(t2)
+            if al.shr:
+                t2 = "ERROR: Cannot enable shares %s" % (t,)
+                self.log("root", t2, 1)
+                raise Exception(t2)
 
     def _process_config(self) -> bool:
         al = self.args
@@ -916,6 +1122,12 @@ class SvcHub(object):
             vs = [x.lower() for x in vs]
             setattr(al, n, vs)
 
+        ns = "ihead ohead"
+        for n in ns.split(" "):
+            vs = getattr(al, n) or []
+            vs = [x.lower() for x in vs]
+            setattr(al, n, vs)
+
         R = al.rp_loc
         if "//" in R or ":" in R:
             t = "found URL in --rp-loc; it should be just the location, for example /foo/bar"
@@ -938,26 +1150,38 @@ class SvcHub(object):
         al.th_coversd_set = set(al.th_coversd)
 
         for k in "c".split(" "):
+            if self.args.env_expand in (0, 2):
+                break
+
             vl = getattr(al, k)
             if not vl:
                 continue
 
-            vl = [os.path.expandvars(os.path.expanduser(x)) for x in vl]
+            vl = [os.path.expanduser(self.args.shenvexp(x)) for x in vl]
             setattr(al, k, vl)
 
         for k in "lo hist dbpath ssl_log".split(" "):
+            if self.args.env_expand in (0, 2):
+                break
+
             vs = getattr(al, k)
             if vs:
-                vs = os.path.expandvars(os.path.expanduser(vs))
+                vs = os.path.expanduser(self.args.shenvexp(vs))
                 setattr(al, k, vs)
 
-        for k in "idp_adm".split(" "):
+        for k in "idp_adm stats_u".split(" "):
             vs = getattr(al, k)
             vsa = [x.strip() for x in vs.split(",")]
             vsa = [x.lower() for x in vsa if x]
             setattr(al, k + "_set", set(vsa))
 
-        zs = "dav_ua1 sus_urls nonsus_urls ua_nodoc ua_nozip"
+        for k in "smsg".split(" "):
+            vs = getattr(al, k)
+            vsa = [x.strip() for x in vs.split(",")]
+            vsa = [x.upper() for x in vsa if x]
+            setattr(al, k + "_set", set(vsa))
+
+        zs = "dav_ua1 lf_url sus_urls nonsus_urls ua_nodav ua_nodoc ua_nozip"
         for k in zs.split(" "):
             vs = getattr(al, k)
             if not vs or vs == "no":
@@ -972,18 +1196,58 @@ class SvcHub(object):
             else:
                 setattr(al, k, re.compile("^" + vs + "$"))
 
+        if al.banmsg.startswith("@"):
+            with open(al.banmsg[1:], "rb") as f:
+                al.banmsg_b = f.read()
+        else:
+            al.banmsg_b = al.banmsg.encode("utf-8") + b"\n"
+
         if not al.sus_urls:
             al.ban_url = "no"
         elif al.ban_url == "no":
             al.sus_urls = None
 
-        al.xff_hdr = al.xff_hdr.lower()
-        al.idp_h_usr = al.idp_h_usr.lower()
-        al.idp_h_grp = al.idp_h_grp.lower()
-        al.idp_h_key = al.idp_h_key.lower()
+        zs = "fika idp_h_grp idp_h_key pw_hdr pw_urlp xf_host xf_proto xf_proto_fb xff_hdr"
+        for k in zs.split(" "):
+            setattr(al, k, str(getattr(al, k)).lower().strip())
 
-        al.ftp_ipa_nm = build_netmap(al.ftp_ipa or al.ipa, True)
-        al.tftp_ipa_nm = build_netmap(al.tftp_ipa or al.ipa, True)
+        al.idp_h_usr = [x.lower() for x in al.idp_h_usr or []]
+
+        al.idp_hm_usr_p = {}
+        for zs0 in al.idp_hm_usr or []:
+            try:
+                sep = zs0[:1]
+                hn, zs1, zs2 = zs0[1:].split(sep)
+                hn = hn.lower()
+                if hn in al.idp_hm_usr_p:
+                    al.idp_hm_usr_p[hn][zs1] = zs2
+                else:
+                    al.idp_hm_usr_p[hn] = {zs1: zs2}
+            except:
+                raise Exception("invalid --idp-hm-usr [%s]" % (zs0,))
+
+        zs1 = ""
+        zs2 = ""
+        zs = al.idp_chsub
+        while zs:
+            if zs[:1] != "|":
+                raise Exception("invalid --idp-chsub; expected another | but got " + zs)
+            zs1 += zs[1:2]
+            zs2 += zs[2:3]
+            zs = zs[3:]
+        al.idp_chsub_tr = umktrans(zs1, zs2)
+
+        al.sftp_ipa_nm = build_netmap(al.sftp_ipa or al.ipa or al.ipar, True)
+        al.ftp_ipa_nm = build_netmap(al.ftp_ipa or al.ipa or al.ipar, True)
+        al.tftp_ipa_nm = build_netmap(al.tftp_ipa or al.ipa or al.ipar, True)
+
+        al.sftp_key2u = {
+            "%s %s" % (x[1], x[2]): x[0]
+            for x in [x.split(" ") for x in al.sftp_key or []]
+        }
+
+        if not al.certkey:
+            al.certkey = None
 
         mte = ODict.fromkeys(DEF_MTE.split(","), True)
         al.mte = odfusion(mte, al.mte)
@@ -1026,12 +1290,21 @@ class SvcHub(object):
         except:
             raise Exception("invalid --mv-retry [%s]" % (self.args.mv_retry,))
 
+        al.js_utc = "false" if al.localtime else "true"
+
         al.tcolor = al.tcolor.lstrip("#")
         if len(al.tcolor) == 3:  # fc5 => ffcc55
             al.tcolor = "".join([x * 2 for x in al.tcolor])
 
+        if self.args.name_url:
+            zs = html_escape(self.args.name_url, True, True)
+            zs = '<a href="%s">%s</a>' % (zs, self.args.name)
+        else:
+            zs = self.args.name
+        self.args.name_html = zs
+
         zs = al.u2sz
-        zsl = zs.split(",")
+        zsl = [x.strip() for x in zs.split(",")]
         if len(zsl) not in (1, 3):
             t = "invalid --u2sz; must be either one number, or a comma-separated list of three numbers (min,default,max)"
             raise Exception(t)
@@ -1048,6 +1321,7 @@ class SvcHub(object):
             zi2 = zi
         al.u2sz = ",".join(zsl)
 
+        derive_args(al)
         return True
 
     def _ipa2re(self, txt) -> Optional[re.Pattern]:
@@ -1099,7 +1373,7 @@ class SvcHub(object):
 
     def _logname(self) -> str:
         dt = datetime.now(self.tz)
-        fn = str(self.args.lo)
+        fn = str(self.lo1)
         for fs in "YmdHMS":
             fs = "%" + fs
             if fs in fn:
@@ -1107,16 +1381,18 @@ class SvcHub(object):
 
         return fn
 
-    def _setup_logfile(self, printed: str) -> None:
-        base_fn = fn = sel_fn = self._logname()
-        do_xz = fn.lower().endswith(".xz")
-        if fn != self.args.lo:
-            ctr = 0
+    def _setup_logfile(self) -> None:
+        base_fn = fn = self._logname()
+        sel_fn = fn + self.lo2
+        do_xz = sel_fn.lower().endswith(".xz")
+        if "%R" in self.args.lo:
             # yup this is a race; if started sufficiently concurrently, two
             # copyparties can grab the same logfile (considered and ignored)
-            while os.path.exists(sel_fn):
-                ctr += 1
-                sel_fn = "{}.{}".format(fn, ctr)
+            for n in range(9999):
+                if n or "!" in self.args.rlo:
+                    sel_fn = self.rot_fmt % (fn, n)
+                if not os.path.exists(sel_fn):
+                    break
 
         fn = sel_fn
         try:
@@ -1147,7 +1423,7 @@ class SvcHub(object):
             argv = ['"{}"'.format(x) for x in argv]
 
         msg = "[+] opened logfile [{}]\n".format(fn)
-        printed += msg
+        printed = "".join(lprinted) + msg
         t = "t0: {:.3f}\nargv: {}\n\n{}"
         lh.write(t.format(self.E.t0, " ".join(argv), printed))
         self.logf = lh
@@ -1162,6 +1438,8 @@ class SvcHub(object):
             Daemon(self.tcpsrv.netmon, "netmon")
 
         Daemon(self.thr_httpsrv_up, "sig-hsrv-up2")
+        if self.args.vc_url:
+            Daemon(self.check_ver, "ver-chk")
 
         sigs = [signal.SIGINT, signal.SIGTERM]
         if not ANYWIN:
@@ -1219,17 +1497,28 @@ class SvcHub(object):
                 self.log("root", "ssdp startup failed;\n" + min_ex(), 3)
 
     def reload(self, rescan_all_vols: bool, up2k: bool) -> str:
-        t = "config has been reloaded"
+        t = "users, volumes, and volflags have been reloaded"
         with self.reload_mutex:
             self.log("root", "reloading config")
             self.asrv.reload(9 if up2k else 4)
+            ramdisk_chk(self.asrv)
             if up2k:
                 self.up2k.reload(rescan_all_vols)
                 t += "; volumes are now reinitializing"
             else:
                 self.log("root", "reload done")
+            t += "\n\nchanges to global options (if any) require a restart of copyparty to take effect"
             self.broker.reload()
+            self._reload_thumbsrv()
         return t
+
+    def _reload_thumbsrv(self) -> None:
+        if not self.thumbsrv:
+            return
+        vols = list(self.asrv.vfs.all_nodes.values())
+        if next((x for x in vols if x.flags.get("th_pregen", "")), None):
+            fun = getattr(self.broker, "say1", self.broker.say)
+            fun("httpsrv.pregen_thumbs")
 
     def _reload_sessions(self) -> None:
         with self.asrv.mutex:
@@ -1315,6 +1604,7 @@ class SvcHub(object):
 
             if self.thumbsrv:
                 self.thumbsrv.shutdown()
+                sutil_close_pools()
 
                 for n in range(200):  # 10s
                     time.sleep(0.05)
@@ -1364,21 +1654,38 @@ class SvcHub(object):
                 dt.microsecond // self.log_div,
             )
 
-            if c and not self.args.no_ansi:
-                if isinstance(c, int):
+            if self.flo == 1:
+                fmt = "@%s [%-21s] %s\n"
+                if not c:
+                    if "\033" in msg:
+                        msg += "\033[0m"
+                elif isinstance(c, int):
                     msg = "\033[3%sm%s\033[0m" % (c, msg)
                 elif "\033" not in c:
                     msg = "\033[%sm%s\033[0m" % (c, msg)
                 else:
                     msg = "%s%s\033[0m" % (c, msg)
 
-            if "\033" in src:
-                src += "\033[0m"
+                if "\033" in src:
+                    src += "\033[0m"
+            else:
+                if not c:
+                    fmt = "@%s  LOG [%-21s] %s\n"
+                elif c == 1:
+                    fmt = "@%s CRIT [%-21s] %s\n"
+                elif c == 3:
+                    fmt = "@%s WARN [%-21s] %s\n"
+                elif c == 6:
+                    fmt = "@%s  BTW [%-21s] %s\n"
+                else:
+                    fmt = "@%s  LOG [%-21s] %s\n"
 
-            if "\033" in msg:
-                msg += "\033[0m"
+                if "\033" in src:
+                    src = RE_ANSI.sub("", src)
+                if "\033" in msg:
+                    msg = RE_ANSI.sub("", msg)
 
-            self.logf.write("@%s [%-21s] %s\n" % (ts, src, msg))
+            self.logf.write(fmt % (ts, src, msg))
             if not self.args.no_logflush:
                 self.logf.flush()
 
@@ -1388,7 +1695,7 @@ class SvcHub(object):
     def _set_next_day(self, dt: datetime) -> None:
         if self.cday and self.logf and self.logf_base_fn != self._logname():
             self.logf.close()
-            self._setup_logfile("")
+            self._setup_logfile()
 
         self.cday = dt.day
         self.cmon = dt.month
@@ -1398,6 +1705,9 @@ class SvcHub(object):
         with self.log_mutex:
             dt = datetime.now(self.tz)
             if dt.day != self.cday or dt.month != self.cmon:
+                if self.args.log_date:
+                    zs = dt.strftime(self.args.log_date)
+                    self.log_efmt = "%s %s" % (zs, self.log_efmt.split(" ")[-1])
                 zs = "{}\n" if self.no_ansi else "\033[36m{}\033[0m\n"
                 zs = zs.format(dt.strftime("%Y-%m-%d"))
                 print(zs, end="")
@@ -1405,15 +1715,27 @@ class SvcHub(object):
                 if self.logf:
                     self.logf.write(zs)
 
-            fmt = "\033[36m%s \033[33m%-21s \033[0m%s\n"
             if self.no_ansi:
-                fmt = "%s %-21s %s\n"
+                if not c:
+                    fmt = "%s %-21s  LOG: %s\n"
+                elif c == 1:
+                    fmt = "%s %-21s CRIT: %s\n"
+                elif c == 3:
+                    fmt = "%s %-21s WARN: %s\n"
+                elif c == 6:
+                    fmt = "%s %-21s  BTW: %s\n"
+                else:
+                    fmt = "%s %-21s  LOG: %s\n"
+
                 if "\033" in msg:
-                    msg = ansi_re.sub("", msg)
+                    msg = RE_ANSI.sub("", msg)
                 if "\033" in src:
-                    src = ansi_re.sub("", src)
-            elif c:
-                if isinstance(c, int):
+                    src = RE_ANSI.sub("", src)
+            else:
+                fmt = "\033[36m%s \033[33m%-21s \033[0m%s\n"
+                if not c:
+                    pass
+                elif isinstance(c, int):
                     msg = "\033[3%sm%s\033[0m" % (c, msg)
                 elif "\033" not in c:
                     msg = "\033[%sm%s\033[0m" % (c, msg)
@@ -1442,6 +1764,69 @@ class SvcHub(object):
                 self.logf.write(msg)
                 if not self.args.no_logflush:
                     self.logf.flush()
+
+    def _log_en_f2(self, src: str, msg: str, c: Union[int, str] = 0) -> None:
+        with self.log_mutex:
+            dt = datetime.now(self.tz)
+            if dt.day != self.cday or dt.month != self.cmon:
+                if self.args.log_date:
+                    zs = dt.strftime(self.args.log_date)
+                    self.log_efmt = "%s %s" % (zs, self.log_efmt.split(" ")[-1])
+                zs = "{}\n" if self.no_ansi else "\033[36m{}\033[0m\n"
+                zs = zs.format(dt.strftime("%Y-%m-%d"))
+                print(zs, end="")
+                self._set_next_day(dt)
+                if self.logf:
+                    self.logf.write(zs)
+
+            ts = self.log_efmt % (
+                dt.hour,
+                dt.minute,
+                dt.second,
+                dt.microsecond // self.log_div,
+            )
+
+            # logfile:
+            if not c:
+                fmt = "%s %-21s  LOG: %s\n"
+            elif c == 1:
+                fmt = "%s %-21s CRIT: %s\n"
+            elif c == 3:
+                fmt = "%s %-21s WARN: %s\n"
+            elif c == 6:
+                fmt = "%s %-21s  BTW: %s\n"
+            else:
+                fmt = "%s %-21s  LOG: %s\n"
+            fsrc = RE_ANSI.sub("", src) if "\033" in src else src
+            fmsg = RE_ANSI.sub("", msg) if "\033" in msg else msg
+            fmsg = fmt % (ts, fsrc, fmsg)
+
+            # stdout ansi:
+            fmt = "\033[36m%s \033[33m%-21s \033[0m%s\n"
+            if not c:
+                pass
+            elif isinstance(c, int):
+                msg = "\033[3%sm%s\033[0m" % (c, msg)
+            elif "\033" not in c:
+                msg = "\033[%sm%s\033[0m" % (c, msg)
+            else:
+                msg = "%s%s\033[0m" % (c, msg)
+
+            msg = fmt % (ts, src, msg)
+            try:
+                print(msg, end="")
+            except UnicodeEncodeError:
+                try:
+                    print(msg.encode("utf-8", "replace").decode(), end="")
+                except:
+                    print(msg.encode("ascii", "replace").decode(), end="")
+            except OSError as ex:
+                if ex.errno != errno.EPIPE:
+                    raise
+
+            self.logf.write(fmsg)
+            if not self.args.no_logflush:
+                self.logf.flush()
 
     def pr(self, *a: Any, **ka: Any) -> None:
         try:
@@ -1495,7 +1880,7 @@ class SvcHub(object):
 
     def sd_notify(self) -> None:
         try:
-            zb = os.getenv("NOTIFY_SOCKET")
+            zb = os.environ.get("NOTIFY_SOCKET")
             if not zb:
                 return
 
@@ -1524,3 +1909,83 @@ class SvcHub(object):
         zb = gzip.compress(zb)
         zs = ub64enc(zb).decode("ascii")
         self.log("stacks", zs)
+
+    def check_ver(self) -> None:
+        next_chk = 0
+        # self.args.vc_age = 2 / 60
+        fpath = os.path.join(self.E.cfg, "vuln_advisory.json")
+        while not self.stopping:
+            now = time.time()
+            if now < next_chk:
+                time.sleep(min(999, next_chk - now))
+                continue
+
+            age = 0
+            jtxt = ""
+            src = "[cache] "
+            try:
+                mtime = os.path.getmtime(fpath)
+                age = time.time() - mtime
+                if age < self.args.vc_age * 3600 - 69:
+                    zs, jtxt = read_utf8(None, fpath, True).split("\n", 1)
+                    if zs != self.args.vc_url:
+                        jtxt = ""
+            except Exception as e:
+                t = "will download advisory because cache-file %r could not be read: %s"
+                self.log("ver-chk", t % (fpath, e), 6)
+
+            if not jtxt:
+                src = ""
+                age = 0
+                try:
+                    req = Request(self.args.vc_url)
+                    with urlopen(req, timeout=30) as f:
+                        jtxt = f.read().decode("utf-8")
+                    try:
+                        with open(fpath, "wb") as f:
+                            zs = self.args.vc_url + "\n" + jtxt
+                            f.write(zs.encode("utf-8"))
+                    except Exception as e:
+                        t = "failed to write advisory to cache; %s"
+                        self.log("ver-chk", t % (e,), 3)
+                except Exception as e:
+                    t = "failed to fetch vulnerability advisory; %s"
+                    self.log("ver-chk", t % (e,), 1)
+
+            next_chk = time.time() + 699
+            if not jtxt:
+                continue
+
+            try:
+                advisories = json.loads(jtxt)
+                for adv in advisories:
+                    if adv.get("state") == "closed":
+                        continue
+                    vuln = {}
+                    for x in adv["vulnerabilities"]:
+                        if x["package"]["name"].lower() == "copyparty":
+                            vuln = x
+                            break
+                    if not vuln:
+                        continue
+                    sver = vuln["patched_versions"].strip(".v")
+                    tver = tuple([int(x) for x in sver.split(".")])
+                    if VERSION < tver:
+                        zs = json.dumps(adv, indent=2)
+                        t = "your version (%s) has a vulnerability! please upgrade:\n%s"
+                        self.log("ver-chk", t % (S_VERSION, zs), 1)
+                        self.broker.say("httpsrv.set_bad_ver")
+                        if self.args.vc_exit:
+                            self.sigterm()
+                        return
+                    else:
+                        t = "%sok; v%s and newer is safe"
+                        self.log("ver-chk", t % (src, sver), 2)
+                next_chk = time.time() + self.args.vc_age * 3600 - age
+            except Exception as e:
+                t = "failed to process vulnerability advisory; %s"
+                self.log("ver-chk", t % (min_ex()), 1)
+                try:
+                    os.unlink(fpath)
+                except:
+                    pass

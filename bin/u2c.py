@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import print_function, unicode_literals
 
-S_VERSION = "2.11"
-S_BUILD_DT = "2025-05-18"
+S_VERSION = "2.20"
+S_BUILD_DT = "2026-04-22"
 
 """
 u2c.py: upload to copyparty
@@ -10,7 +10,7 @@ u2c.py: upload to copyparty
 https://github.com/9001/copyparty/blob/hovudstraum/bin/u2c.py
 
 - dependencies: no
-- supports python 2.6, 2.7, and 3.3 through 3.12
+- supports python 2.6, 2.7, and 3.3 through 3.14
 - if something breaks just try again and it'll autoresume
 """
 
@@ -52,6 +52,7 @@ if PY2:
 
     sys.dont_write_bytecode = True
     bytes = str
+    files_decoder = lambda s: unicode(s, "utf8")
 else:
     from urllib.parse import quote_from_bytes as quote
     from urllib.parse import unquote_to_bytes as unquote
@@ -61,6 +62,7 @@ else:
     from queue import Queue
 
     unicode = str
+    files_decoder = unicode
 
 
 WTF8 = "replace" if PY2 else "surrogateescape"
@@ -98,7 +100,7 @@ except:
     ub64enc = base64.urlsafe_b64encode
 
 
-class BadAuth(Exception):
+class Fatal(Exception):
     pass
 
 
@@ -163,8 +165,8 @@ class HCli(object):
             elif self.verify is True:
                 self.ctx = None
             else:
-                self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
-                self.ctx.load_verify_locations(self.verify)
+                self.ctx = ssl.create_default_context(cafile=self.verify)
+                self.ctx.check_hostname = ar.teh
 
         self.base_hdrs = {
             "Accept": "*/*",
@@ -194,6 +196,8 @@ class HCli(object):
         hdrs.update(self.base_hdrs)
         if self.ar.a:
             hdrs["PW"] = self.ar.a
+        if self.ar.ba:
+            hdrs["Authorization"] = self.ar.ba
         if ctype:
             hdrs["Content-Type"] = ctype
         if meth == "POST" and CLEN not in hdrs:
@@ -230,6 +234,7 @@ class HCli(object):
 
 MJ = "application/json"
 MO = "application/octet-stream"
+MM = "application/x-www-form-urlencoded"
 CLEN = "Content-Length"
 
 web = None  # type: HCli
@@ -489,6 +494,12 @@ print = safe_print if VT100 else flushing_print
 
 
 def termsize():
+    try:
+        w, h = os.get_terminal_size()
+        return w, h
+    except:
+        pass
+
     env = os.environ
 
     def ioctl_GWINSZ(fd):
@@ -588,9 +599,10 @@ def undns(url):
 
 def _scd(err, top):
     """non-recursive listing of directory contents, along with stat() info"""
+    top_ = os.path.join(top, b"")
     with os.scandir(top) as dh:
         for fh in dh:
-            abspath = os.path.join(top, fh.name)
+            abspath = top_ + fh.name
             try:
                 yield [abspath, fh.stat()]
             except Exception as ex:
@@ -599,8 +611,9 @@ def _scd(err, top):
 
 def _lsd(err, top):
     """non-recursive listing of directory contents, along with stat() info"""
+    top_ = os.path.join(top, b"")
     for name in os.listdir(top):
-        abspath = os.path.join(top, name)
+        abspath = top_ + name
         try:
             yield [abspath, os.stat(abspath)]
         except Exception as ex:
@@ -675,7 +688,7 @@ def walkdirs(err, tops, excl):
                 yield stop, ap[len(stop) :].lstrip(sep), inf
         else:
             d, n = top.rsplit(sep, 1)
-            yield d, n, os.stat(top)
+            yield d or b"/", n, os.stat(top)
 
 
 # mostly from copyparty/util.py
@@ -822,10 +835,15 @@ def handshake(ar, file, search):
             url = ""
         url = ar.vtop + url
 
+    t0 = time.time()
+    tmax = t0 + ar.t_hs
     while True:
         sc = 600
         txt = ""
-        t0 = time.time()
+        t1 = time.time()
+        if t1 >= tmax:
+            print("\nERROR: server offline for longer than --t-hs; giving up")
+            raise Fatal()
         try:
             zs = json.dumps(req, separators=(",\n", ": "))
             sc, txt = web.req("POST", url, {}, zs.encode("utf-8"), MJ)
@@ -846,13 +864,13 @@ def handshake(ar, file, search):
                 return [], False
             elif sc == 409 or "<pre>upload rejected, file already exists" in txt:
                 return [], False
-            elif sc == 403:
+            elif sc == 403 or sc == 401:
                 print("\nERROR: login required, or wrong password:\n%s" % (txt,))
-                raise BadAuth()
+                raise Fatal()
 
-            t = "handshake failed, retrying: %s\n  t0=%.3f t1=%.3f td=%.3f\n  %s\n\n"
+            t = "handshake failed, retrying: %s\n  t0=%.3f t1=%.3f t2=%.3f td1=%.3f td2=%.3f\n  %s\n\n"
             now = time.time()
-            eprint(t % (file.name, t0, now, now - t0, em))
+            eprint(t % (file.name, t0, t1, now, now - t0, now - t1, em))
             time.sleep(ar.cd)
 
     try:
@@ -975,6 +993,7 @@ class Ctl(object):
         self.nfiles, self.nbytes = self.stats
         self.filegen = walkdirs([], ar.files, ar.x)
         self.recheck = []  # type: list[File]
+        self.last_file = None
 
         if ar.safe:
             self._safe()
@@ -1011,6 +1030,11 @@ class Ctl(object):
 
             self._fancy()
 
+        file = self.last_file
+        if self.up_br and file:
+            zs = quotep(file.name.encode("utf-8", WTF8))
+            web.req("POST", file.url, {}, b"msg=upload-queue-empty;" + zs, MM)
+
         self.ok = not self.errs
 
     def _safe(self):
@@ -1032,7 +1056,7 @@ class Ctl(object):
                 print("  hs...")
                 try:
                     hs, _ = handshake(self.ar, file, search)
-                except BadAuth:
+                except Fatal:
                     sys.exit(1)
 
                 if search:
@@ -1160,7 +1184,7 @@ class Ctl(object):
             handshake(self.ar, file, False)
 
     def cleanup_vt100(self):
-        if VT100:
+        if VT100 and not self.ar.ns:
             ss.scroll_region(None)
         else:
             eprint("\033]9;4;0\033\\")
@@ -1221,9 +1245,7 @@ class Ctl(object):
                             while req:
                                 print("DELETING ~%s#%s" % (srd, len(req)))
                                 body = json.dumps(req).encode("utf-8")
-                                sc, txt = web.req(
-                                    "POST", self.ar.url + "?delete", {}, body, MJ
-                                )
+                                sc, txt = web.req("POST", "/?delete", {}, body, MJ)
                                 if sc == 413 and "json 2big" in txt:
                                     print(" (delete request too big; slicing...)")
                                     req = req[: len(req) // 2]
@@ -1339,7 +1361,7 @@ class Ctl(object):
 
             try:
                 hs, sprs = handshake(self.ar, file, search)
-            except BadAuth:
+            except Fatal:
                 self.panik = 1
                 break
 
@@ -1451,6 +1473,7 @@ class Ctl(object):
 
             file = fsl.file
             cids = fsl.cids
+            self.last_file = file
 
             with self.mutex:
                 if not self.uploader_busy:
@@ -1525,16 +1548,17 @@ def main():
 
     # fmt: off
     ap = app = argparse.ArgumentParser(formatter_class=APF, description="copyparty up2k uploader / filesearch tool  " + ver, epilog="""
-NOTE:
-source file/folder selection uses rsync syntax, meaning that:
+NOTE: source file/folder selection uses rsync syntax, meaning that:
   "foo" uploads the entire folder to URL/foo/
   "foo/" uploads the CONTENTS of the folder into URL/
+NOTE: if server has --usernames enabled, then password is "username:password"
 """)
 
     ap.add_argument("url", type=unicode, help="server url, including destination folder")
-    ap.add_argument("files", type=unicode, nargs="+", help="files and/or folders to process")
+    ap.add_argument("files", type=files_decoder, nargs="+", help="files and/or folders to process")
     ap.add_argument("-v", action="store_true", help="verbose")
-    ap.add_argument("-a", metavar="PASSWD", help="password or $filepath")
+    ap.add_argument("-a", metavar="PASSWD", default="", help="password (or $filepath) for copyparty (is sent in header 'PW')")
+    ap.add_argument("--ba", metavar="PASSWD", default="", help="password (or $filepath) for basic-auth (usually not necessary)")
     ap.add_argument("-s", action="store_true", help="file-search (disables upload)")
     ap.add_argument("-x", type=unicode, metavar="REGEX", action="append", help="skip file if filesystem-abspath matches REGEX (option can be repeated), example: '.*/\\.hist/.*'")
     ap.add_argument("--ok", action="store_true", help="continue even if some local files are inaccessible")
@@ -1572,11 +1596,13 @@ source file/folder selection uses rsync syntax, meaning that:
     ap.add_argument("-ns", action="store_true", help="no status panel (for slow consoles and macos)")
     ap.add_argument("--cxp", type=float, metavar="SEC", default=57, help="assume http connections expired after SEConds")
     ap.add_argument("--cd", type=float, metavar="SEC", default=5, help="delay before reattempting a failed handshake/upload")
+    ap.add_argument("--t-hs", type=float, metavar="SEC", default=186, help="crash if handshakes fail due to server-offline for this long")
     ap.add_argument("--safe", action="store_true", help="use simple fallback approach")
     ap.add_argument("-z", action="store_true", help="ZOOMIN' (skip uploading files if they exist at the destination with the ~same last-modified timestamp, so same as yolo / turbo with date-chk but even faster)")
 
     ap = app.add_argument_group("tls")
     ap.add_argument("-te", metavar="PATH", help="path to ca.pem or cert.pem to expect/verify")
+    ap.add_argument("-teh", action="store_true", help="require correct hostname in -te cert")
     ap.add_argument("-td", action="store_true", help="disable certificate check")
     # fmt: on
 
@@ -1672,11 +1698,15 @@ source file/folder selection uses rsync syntax, meaning that:
             print("\n\n   %s\n\n" % (t,))
             raise
 
-    if ar.a and ar.a.startswith("$"):
-        fn = ar.a[1:]
-        print("reading password from file [{0}]".format(fn))
-        with open(fn, "rb") as f:
-            ar.a = f.read().decode("utf-8").strip()
+    for k in ("a", "ba"):
+        zs = getattr(ar, k)
+        if zs.startswith("$"):
+            print("reading password from file [%s]" % (zs[1:],))
+            with open(zs[1:], "rb") as f:
+                setattr(ar, k, f.read().decode("utf-8").strip())
+
+    if ar.ba:
+        ar.ba = "Basic " + base64.b64encode(ar.ba.encode("utf-8")).decode("utf-8")
 
     for n in range(ar.rh):
         try:

@@ -19,18 +19,19 @@ from .__init__ import PY2, TYPE_CHECKING
 from .authsrv import VFS
 from .bos import bos
 from .util import (
-    FN_EMB,
     VF_CAREFUL,
     Daemon,
     ODict,
     Pebkac,
     exclude_dotfiles,
+    exclude_dothidden,
     fsenc,
     ipnorm,
     pybin,
     relchk,
     runhook,
     sanitize_fn,
+    set_fperms,
     vjoin,
     wunlink,
 )
@@ -67,13 +68,13 @@ class FtpAuth(DummyAuthorizer):
         if ip.startswith("::ffff:"):
             ip = ip[7:]
 
-        ip = ipnorm(ip)
+        ipn = ipnorm(ip)
         bans = self.hub.bans
-        if ip in bans:
-            rt = bans[ip] - time.time()
+        if ipn in bans:
+            rt = bans[ipn] - time.time()
             if rt < 0:
                 logging.info("client unbanned")
-                del bans[ip]
+                del bans[ipn]
             else:
                 raise AuthenticationFailed("banned")
 
@@ -82,7 +83,12 @@ class FtpAuth(DummyAuthorizer):
         uname = "*"
         if username != "anonymous":
             uname = ""
-            for zs in (password, username):
+            if args.usernames:
+                alts = ["%s:%s" % (username, password)]
+            else:
+                alts = [password, username]
+
+            for zs in alts:
                 zs = asrv.iacct.get(asrv.ah.hash(zs), "")
                 if zs:
                     uname = zs
@@ -90,6 +96,10 @@ class FtpAuth(DummyAuthorizer):
 
         if args.ipu and uname == "*":
             uname = args.ipu_iu[args.ipu_nm.map(ip)]
+        if args.ipr and uname in args.ipr_u:
+            if not args.ipr_u[uname].map(ip):
+                logging.warning("username [%s] rejected by --ipr", uname)
+                uname = "*"
 
         if not uname or not (asrv.vfs.aread.get(uname) or asrv.vfs.awrite.get(uname)):
             g = self.hub.gpwd
@@ -142,10 +152,6 @@ class FtpFs(AbstractedFS):
         self.cwd = "/"  # pyftpdlib convention of leading slash
         self.root = "/var/lib/empty"
 
-        self.can_read = self.can_write = self.can_move = False
-        self.can_delete = self.can_get = self.can_upget = False
-        self.can_admin = self.can_dot = False
-
         self.listdirinfo = self.listdir
         self.chdir(".")
 
@@ -168,12 +174,12 @@ class FtpFs(AbstractedFS):
                 t = "Unsupported characters in [{}]"
                 raise FSE(t.format(vpath), 1)
 
-            fn = sanitize_fn(fn or "", "")
+            fn = sanitize_fn(fn or "")
             vpath = vjoin(rd, fn)
             vfs, rem = self.hub.asrv.vfs.get(vpath, self.uname, r, w, m, d)
             if (
                 w
-                and fn.lower() in FN_EMB
+                and fn.lower() in vfs.flags["emb_all"]
                 and self.h.uname not in vfs.axs.uread
                 and "wo_up_readme" not in vfs.flags
             ):
@@ -192,11 +198,16 @@ class FtpFs(AbstractedFS):
                 if not avfs:
                     raise FSE(t.format(vpath), 1)
 
-                cr, cw, cm, cd, _, _, _, _ = avfs.can_access("", self.h.uname)
+                cr, cw, cm, cd, _, _, _, _, _ = avfs.uaxs[self.h.uname]
                 if r and not cr or w and not cw or m and not cm or d and not cd:
                     raise FSE(t.format(vpath), 1)
+            else:
+                ap = vfs.canonical(rem, False)
 
-            return os.path.join(vfs.realpath, rem), vfs, rem
+            if "bcasechk" in vfs.flags and not vfs.casechk(rem, True):
+                raise FSE("No such file or directory", 1)
+
+            return ap, vfs, rem
         except Pebkac as ex:
             raise FSE(str(ex))
 
@@ -208,7 +219,7 @@ class FtpFs(AbstractedFS):
         m: bool = False,
         d: bool = False,
     ) -> tuple[str, VFS, str]:
-        return self.v2a(os.path.join(self.cwd, vpath), r, w, m, d)
+        return self.v2a(join(self.cwd, vpath), r, w, m, d)
 
     def ftp2fs(self, ftppath: str) -> str:
         # return self.v2a(ftppath)
@@ -240,9 +251,36 @@ class FtpFs(AbstractedFS):
                 need_unlink = False
                 td = 0
 
-        if w and need_unlink:
+            xbu = vfs.flags.get("xbu")
+            if xbu:
+                hr = runhook(
+                    self.log,
+                    None,
+                    self.hub.up2k,
+                    "xbu.ftp",
+                    xbu,
+                    ap,
+                    filename,
+                    "",
+                    "",
+                    "",
+                    0,
+                    0,
+                    "1.3.8.7",
+                    time.time(),
+                    None,
+                )
+                t = hr.get("rejectmsg") or ""
+                if t or hr.get("rc") != 0:
+                    if not t:
+                        t = "upload blocked by xbu server config: %r" % (filename,)
+                    self.log(t, 3)
+                    raise FSE(t)
+
+        if w and need_unlink:  # type: ignore  # !rm
+            assert td  # type: ignore  # !rm
             if td >= -1 and td <= self.args.ftp_wt:
-                # within permitted timeframe; unlink and accept
+                # within permitted timeframe; allow overwrite or resume
                 do_it = True
             elif self.args.no_del or self.args.ftp_no_ow:
                 # file too old, or overwrite not allowed; reject
@@ -259,17 +297,23 @@ class FtpFs(AbstractedFS):
             if not do_it:
                 raise FSE("File already exists")
 
-            wunlink(self.log, ap, VF_CAREFUL)
+            # Don't unlink file for append mode
+            elif "a" not in mode:
+                wunlink(self.log, ap, VF_CAREFUL)
 
         ret = open(fsenc(ap), mode, self.args.iobuf)
-        if w and "chmod_f" in vfs.flags:
-            os.fchmod(ret.fileno(), vfs.flags["chmod_f"])
+        if w and "fperms" in vfs.flags:
+            set_fperms(ret, vfs.flags)
 
         return ret
 
     def chdir(self, path: str) -> None:
         nwd = join(self.cwd, path)
         vfs, rem = self.hub.asrv.vfs.get(nwd, self.uname, False, False)
+        if not vfs.realpath:
+            self.cwd = nwd
+            return
+
         ap = vfs.canonical(rem)
         try:
             st = bos.stat(ap)
@@ -284,21 +328,10 @@ class FtpFs(AbstractedFS):
             raise FSE("Permission denied", 1)
 
         self.cwd = nwd
-        (
-            self.can_read,
-            self.can_write,
-            self.can_move,
-            self.can_delete,
-            self.can_get,
-            self.can_upget,
-            self.can_admin,
-            self.can_dot,
-        ) = avfs.can_access("", self.h.uname)
 
     def mkdir(self, path: str) -> None:
         ap, vfs, _ = self.rv2a(path, w=True)
-        chmod = vfs.flags["chmod_d"]
-        bos.makedirs(ap, chmod)  # filezilla expects this
+        bos.makedirs(ap, vf=vfs.flags)  # filezilla expects this
 
     def listdir(self, path: str) -> list[str]:
         vpath = join(self.cwd, path)
@@ -317,8 +350,11 @@ class FtpFs(AbstractedFS):
             vfs_ls = [x[0] for x in vfs_ls1]
             vfs_ls.extend(vfs_virt.keys())
 
-            if not self.can_dot:
-                vfs_ls = exclude_dotfiles(vfs_ls)
+            if self.uname not in vfs.axs.udot:
+                if "dothidden" in vfs.flags and ".hidden" in [x[0] for x in vfs_ls]:
+                    vfs_ls = exclude_dothidden(vfs_ls, fsroot)
+                else:
+                    vfs_ls = exclude_dotfiles(vfs_ls)
 
             vfs_ls.sort()
             return vfs_ls
@@ -365,16 +401,13 @@ class FtpFs(AbstractedFS):
             raise FSE(str(ex))
 
     def rename(self, src: str, dst: str) -> None:
-        if not self.can_move:
-            raise FSE("Not allowed for user " + self.h.uname)
-
         if self.args.no_mv:
             raise FSE("The rename/move feature is disabled in server config")
 
         svp = join(self.cwd, src).lstrip("/")
         dvp = join(self.cwd, dst).lstrip("/")
         try:
-            self.hub.up2k.handle_mv(self.uname, self.h.cli_ip, svp, dvp)
+            self.hub.up2k.handle_mv("", self.uname, self.h.cli_ip, svp, dvp)
         except Exception as ex:
             raise FSE(str(ex))
 
@@ -398,7 +431,7 @@ class FtpFs(AbstractedFS):
 
     def utime(self, path: str, timeval: float) -> None:
         ap = self.rv2a(path, w=True)[0]
-        return bos.utime(ap, (timeval, timeval))
+        bos.utime_c(logging.warning, ap, int(timeval), False)
 
     def lstat(self, path: str) -> os.stat_result:
         ap = self.rv2a(path)[0]
@@ -487,27 +520,37 @@ class FtpHandler(FTPHandler):
     def ftp_STOR(self, file: str, mode: str = "w") -> Any:
         # Optional[str]
         vp = join(self.fs.cwd, file).lstrip("/")
-        ap, vfs, rem = self.fs.v2a(vp, w=True)
+        try:
+            ap, vfs, rem = self.fs.v2a(vp, w=True)
+        except Exception as ex:
+            self.respond("550 %s" % (ex,), logging.info)
+            return
         self.vfs_map[ap] = vp
         xbu = vfs.flags.get("xbu")
-        if xbu and not runhook(
-            None,
-            None,
-            self.hub.up2k,
-            "xbu.ftpd",
-            xbu,
-            ap,
-            vp,
-            "",
-            self.uname,
-            self.hub.asrv.vfs.get_perms(vp, self.uname),
-            0,
-            0,
-            self.cli_ip,
-            time.time(),
-            "",
-        ):
-            raise FSE("Upload blocked by xbu server config")
+        if xbu:
+            hr = runhook(
+                None,
+                None,
+                self.hub.up2k,
+                "xbu.ftpd",
+                xbu,
+                ap,
+                vp,
+                "",
+                self.uname,
+                self.hub.asrv.vfs.get_perms(vp, self.uname),
+                0,
+                0,
+                self.cli_ip,
+                time.time(),
+                None,
+            )
+            t = hr.get("rejectmsg") or ""
+            if t or hr.get("rc") != 0:
+                if not t:
+                    t = "Upload blocked by xbu server config: %r" % (vp,)
+                self.respond("550 %s" % (t,), logging.info)
+                return
 
         # print("ftp_STOR: {} {} => {}".format(vp, mode, ap))
         ret = FTPHandler.ftp_STOR(self, file, mode)
@@ -573,6 +616,8 @@ class Ftpd(object):
                 print(t.format(pybin))
                 sys.exit(1)
 
+            if self.args.certkey:
+                h1.keyfile = self.args.certkey
             h1.certfile = self.args.cert
             h1.tls_control_required = True
             h1.tls_data_required = True
@@ -603,11 +648,11 @@ class Ftpd(object):
         lgr = logging.getLogger("pyftpdlib")
         lgr.setLevel(logging.DEBUG if self.args.ftpv else logging.INFO)
 
-        ips = self.args.i
+        ips = self.args.ftp_i
         if "::" in ips:
             ips.append("0.0.0.0")
 
-        ips = [x for x in ips if "unix:" not in x]
+        ips = [x for x in ips if not x.startswith(("unix:", "fd:"))]
 
         if self.args.ftp4:
             ips = [x for x in ips if ":" not in x]

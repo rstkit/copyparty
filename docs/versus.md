@@ -68,7 +68,7 @@ currently up to date with [awesome-selfhosted](https://github.com/awesome-selfho
 * [kodbox](https://github.com/kalcaddle/kodbox) ([review](#kodbox)) appears to be a fantastic alternative if you're not worried about running chinese software, with several advantages over copyparty
   * but anything you want to share must be moved into the kodbox filesystem
 * [seafile](https://github.com/haiwen/seafile) ([review](#seafile)) and [nextcloud](https://github.com/nextcloud/server) ([review](#nextcloud)) could be decent alternatives if you need something heavier than copyparty
-  * but their [license](https://snyk.io/learn/agpl-license/) is [problematic](https://opensource.google/documentation/reference/using/agpl-policy)
+  * but their [license (AGPL)](https://snyk.io/learn/agpl-license/) is [thorny](https://opensource.google/documentation/reference/using/agpl-policy)
   * and copyparty is way better at uploads in particular (resumable, accelerated)
   * and anything you want to share must be moved into the respective filesystems
 * [filebrowser](https://github.com/filebrowser/filebrowser) ([review](#filebrowser)) and [dufs](https://github.com/sigoden/dufs) ([review](#dufs)) are simpler copyparties but with a settings gui
@@ -85,19 +85,34 @@ currently up to date with [awesome-selfhosted](https://github.com/awesome-selfho
 the table headers in the matrixes below are the different softwares, with a quick review of each software in the next section
 
 the softwares,
-* `a` = [copyparty](https://github.com/9001/copyparty)
-* `b` = [hfs2](https://github.com/rejetto/hfs2/) 🔥
-* `c` = [hfs3](https://rejetto.com/hfs/)
-* `d` = [nextcloud](https://github.com/nextcloud/server)
-* `e` = [seafile](https://github.com/haiwen/seafile)
-* `f` = [rclone](https://github.com/rclone/rclone), specifically `rclone serve webdav .`
-* `g` = [dufs](https://github.com/sigoden/dufs)
-* `h` = [chibisafe](https://github.com/chibisafe/chibisafe)
-* `i` = [kodbox](https://github.com/kalcaddle/kodbox)
-* `j` = [filebrowser](https://github.com/filebrowser/filebrowser)
-* `k` = [filegator](https://github.com/filegator/filegator)
-* `l` = [sftpgo](https://github.com/drakkan/sftpgo)
-* `m` = [arozos](https://github.com/tobychui/arozos)
+
+[C]: https://github.com/9001/copyparty "copyparty"
+[h2]: https://github.com/rejetto/hfs2/ "hfs2"
+[h3]: https://rejetto.com/hfs/ "hfs3"
+[nc]: https://github.com/nextcloud/server "nextcloud"
+[sf]: https://github.com/haiwen/seafile "seafile"
+[rc]: https://github.com/rclone/rclone "rclone"
+[df]: https://github.com/sigoden/dufs "dufs"
+[cs]: https://github.com/chibisafe/chibisafe "chibisafe"
+[kb]: https://github.com/kalcaddle/kodbox "kodbox"
+[fb]: https://github.com/filebrowser/filebrowser "filebrowser"
+[fg]: https://github.com/filegator/filegator "filegator"
+[sg]: https://github.com/drakkan/sftpgo "sftpgo"
+[az]: https://github.com/tobychui/arozos "arozos"
+
+* `C` = [copyparty][C]
+* `h2` = [hfs2][h2] 🔥
+* `h3` = [hfs3][h3]
+* `nc` = [nextcloud][nc]
+* `sf` = [seafile][sf]
+* `rc` = [rclone][rc], specifically `rclone serve webdav .`
+* `df` = [dufs][df]
+* `cs` = [chibisafe][cs]
+* `kb` = [kodbox][kb]
+* `fb` = [filebrowser][fb]
+* `fg` = [filegator][fg]
+* `sg` = [sftpgo][sg]
+* `az` = [arozos][az]
 
 some softwares not in the matrixes,
 * [updog](#updog)
@@ -119,49 +134,55 @@ symbol legend,
 
 ## general
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | intuitive UX            |   | ╱ | █ | █ | █ |   | █ | █ | █ | █ | █ | █ | █ |
 | config GUI              |   | █ | █ | █ | █ |   |   | █ | █ | █ |   | █ | █ |
-| good documentation      |   |   |   | █ | █ | █ | █ |   |   | █ | █ | ╱ | ╱ |
+| good documentation      |   |   | █ | █ | █ | █ | █ |   |   | █ | █ | ╱ | ╱ |
 | runs on iOS             | ╱ |   |   |   |   | ╱ |   |   |   |   |   |   |   |
-| runs on Android         | █ |   |   |   |   | █ |   |   |   |   |   |   |   |
+| runs on Android         | █ |   | █ |   |   | █ |   |   |   |   |   | █ |   |
 | runs on WinXP           | █ | █ |   |   |   | █ |   |   |   |   |   |   |   |
 | runs on Windows         | █ | █ | █ | █ | █ | █ | █ | ╱ | █ | █ | █ | █ | ╱ |
 | runs on Linux           | █ | ╱ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ |
 | runs on Macos           | █ |   | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ |   |
-| runs on FreeBSD         | █ |   |   | • | █ | █ | █ | • | █ | █ |   | █ |   |
+| runs on FreeBSD         | █ |   | █ | • | █ | █ | █ | • | █ | █ |   | █ |   |
 | runs on Risc-V          | █ |   |   | █ | █ | █ |   | • |   | █ |   |   |   |
+| runs on SGI IRIX        | █ |   |   | • |   |   |   |   |   |   |   |   |   |
+| runs on aarch64-BE      | █ |   |   | • |   | • |   |   |   | • |   | • |   |
 | portable binary         | █ | █ | █ |   |   | █ | █ |   |   | █ |   | █ | █ |
 | zero setup, just go     | █ | █ | █ |   |   | ╱ | █ |   |   | █ |   | ╱ | █ |
 | android app             | ╱ |   |   | █ | █ |   |   |   |   |   |   |   |   |
 | iOS app                 | ╱ |   |   | █ | █ |   |   |   |   |   |   |   |   |
 
 * `zero setup` = you can get a mostly working setup by just launching the app, without having to install any software or configure whatever
-* `a`/copyparty remarks:
+* `C`/copyparty remarks:
   * no gui for server settings; only for client-side stuff
-  * can theoretically run on iOS / iPads using [iSH](https://ish.app/), but only the iPad will offer sufficient multitasking i think
+  * runs on iOS / iPads using [a-Shell](https://holzschu.github.io/a-Shell_iOS/) (pretty good) or [iSH](https://ish.app/) (very slow) but cannot run in the background and is not able to share all of your phone storage (just a separate dedicated folder)
   * [android app](https://f-droid.org/en/packages/me.ocv.partyup/) is for uploading only
   * no iOS app but has [shortcuts](https://github.com/9001/copyparty#ios-shortcuts) for easy uploading
-* `b`/hfs2 runs on linux through wine
-* `f`/rclone must be started with the command `rclone serve webdav .` or similar
-* `h`/chibisafe has undocumented windows support
-* `i`/sftpgo must be launched with a command
-* `m`/arozos has partial windows support
+  * validated on aarch64-BE by [Øl Telecom](http://ol-tele.com/) during eth0:2025; [photo1](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/aallwinner.jpg?cache) and [diploma](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/be-ready.png?cache)
+  * validated on [SGI IRIX](https://en.wikipedia.org/wiki/IRIX) ([an O2](https://en.wikipedia.org/wiki/SGI_O2)) by [Øl Telecom](http://ol-tele.com/) during 39c3; [photo1](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/sgi-o2.jpg?cache) and [screenshot](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/sgi-o2.png?cache)
+* `h2`/hfs2 runs on linux through wine
+* `rc`/rclone must be started with the command `rclone serve webdav .` or similar
+* `cs`/chibisafe has undocumented windows support
+* `sg`/sftpgo:
+  * Must be launched with a command
+  * On Termux, just run `pkg in sftpgo`
+* `az`/arozos has partial windows support
 
 
 ## file transfer
 
 *the thing that copyparty is actually kinda good at*
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | download folder as zip  | █ | █ | █ | █ | ╱ |   | █ |   | █ | █ | ╱ | █ | ╱ |
 | download folder as tar  | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | upload                  | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | ╱ | █ | █ |
 | parallel uploads        | █ |   |   | █ | █ |   | • |   | █ | █ | █ |   | █ |
 | resumable uploads       | █ |   | █ |   |   |   |   |   | █ | █ | █ | ╱ |   |
-| upload segmenting       | █ |   |   | █ |   |   |   | █ | █ | █ | █ | ╱ | █ |
+| upload segmenting       | █ |   | █ | █ |   |   |   | █ | █ | █ | █ | ╱ | █ |
 | upload acceleration     | █ |   |   |   |   |   |   |   | █ |   | █ |   |   |
 | upload verification     | █ |   |   | █ | █ |   |   |   | █ |   |   |   |   |
 | upload deduplication    | █ |   |   |   | █ |   |   |   | █ |   |   |   |   |
@@ -169,7 +190,7 @@ symbol legend,
 | CTRL-V from device      | █ |   |   | █ |   |   |   |   |   |   |   |   |   |
 | race the beam ("p2p")   | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | "tail -f" streaming     | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| keep last-modified time | █ |   |   | █ | █ | █ |   |   |   |   |   | █ |   |
+| keep last-modified time | █ |   | █ | █ | █ | █ |   |   |   |   |   | █ |   |
 | upload rules            | ╱ | ╱ | ╱ | ╱ | ╱ |   |   | ╱ | ╱ |   | ╱ | ╱ | ╱ |
 | ┗ max disk usage        | █ | █ | █ |   | █ |   |   |   | █ |   |   | █ | █ |
 | ┗ max filesize          | █ |   |   |   |   |   |   | █ |   |   | █ | █ | █ |
@@ -203,29 +224,29 @@ symbol legend,
 
 * `cloud storage backend` = able to serve files from (and write to) s3 or similar cloud services; `╱` means the software can do this with some help from `rclone mount` as a bridge
 
-* `a`/copyparty can reject uploaded files (based on complex conditions), for example [by extension](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/reject-extension.py) or [mimetype](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/reject-mimetype.py)
-* `e`/seafile download-as-zip is not streaming; it creates the full zipfile before download can start, and fails on big folders
-* `j`/filebrowser remarks:
+* `C`/copyparty can reject uploaded files (based on complex conditions), for example [by extension](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/reject-extension.py) or [mimetype](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/reject-mimetype.py)
+* `sf`/seafile download-as-zip is not streaming; it creates the full zipfile before download can start, and fails on big folders
+* `fg`/filebrowser remarks:
   * can provide checksums for single files on request
   * can probably do extension/mimetype rejection similar to copyparty
-* `k`/filegator download-as-zip is not streaming; it creates the full zipfile before download can start
-* `l`/sftpgo:
+* `fg`/filegator download-as-zip is not streaming; it creates the full zipfile before download can start
+* `sg`/sftpgo:
   * resumable/segmented uploads only over SFTP, not over HTTP
   * upload rules are totals only, not over time
   * can probably do extension/mimetype rejection similar to copyparty
-* `m`/arozos download-as-zip is not streaming; it creates the full zipfile before download can start, and fails on big folders
+* `az`/arozos download-as-zip is not streaming; it creates the full zipfile before download can start, and fails on big folders
 
 
 ## protocols and client support
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | serve https             | █ |   | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ |
 | serve webdav            | █ |   |   | █ | █ | █ | █ |   | █ |   |   | █ | █ |
 | serve ftp  (tcp)        | █ |   |   |   |   | █ |   |   |   |   |   | █ | █ |
 | serve ftps (tls)        | █ |   |   |   |   | █ |   |   |   |   |   | █ |   |
 | serve tftp (udp)        | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| serve sftp (ssh)        |   |   |   |   |   | █ |   |   |   |   |   | █ | █ |
+| serve sftp (ssh)        | █ |   |   |   |   | █ |   |   |   |   |   | █ | █ |
 | serve smb/cifs          | ╱ |   |   |   |   | █ |   |   |   |   |   |   |   |
 | serve dlna              |   |   |   |   |   | █ |   |   |   |   |   |   |   |
 | listen on unix-socket   | █ |   |   | █ | █ |   | █ | █ | █ | █ | █ | █ |   |
@@ -240,18 +261,18 @@ symbol legend,
 * `mojibake filenames` = filenames decoded with the wrong codec and then reencoded (usually to utf-8), so `宇多田ヒカル` might look like `ëFæ╜ôcâqâJâï`
 * `undecodable filenames` = pure binary garbage which cannot be parsed as utf-8
   * you can successfully play `$'\355\221'` with mpv through mounting a remote copyparty server with rclone, pog
-* `a`/copyparty remarks:
+* `C`/copyparty remarks:
   * extremely minimal samba/cifs server
   * netscape 4 / ie6 support is mostly listed as a joke altho some people have actually found it useful ([ie4 tho](https://user-images.githubusercontent.com/241032/118192791-fb31fe00-b446-11eb-9647-898ea8efc1f7.png))
-* `l`/sftpgo translates mojibake filenames into valid utf-8 (information loss)
-* `m`/arozos has readonly-support for older browsers; no uploading
+* `sg`/sftpgo translates mojibake filenames into valid utf-8 (information loss)
+* `az`/arozos has readonly-support for older browsers; no uploading
 
 
 ## server configuration
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| config from cmd args    | █ |   |   |   |   | █ | █ |   |   | █ |   | ╱ | ╱ |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| config from cmd args    | █ |   | █ |   |   | █ | █ |   |   | █ |   | ╱ | ╱ |
 | config files            | █ | █ | █ | ╱ | ╱ | █ |   | █ |   | █ | • | ╱ | ╱ |
 | runtime config reload   | █ | █ | █ |   |   |   |   | █ | █ | █ | █ |   | █ |
 | same-port http / https  | █ |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -261,26 +282,26 @@ symbol legend,
 | folder-rproxy ok        | █ |   | █ |   | █ | █ |   | • | • | █ | • |   | • |
 
 * `folder-rproxy` = reverse-proxying without dedicating an entire (sub)domain, using a subfolder instead
-* `l`/sftpgo:
-  * config: users must be added through gui / api calls
-* `m`/arozos:
+* `sg`/sftpgo:
+  * config: user can be added by cmd command in [Portable mode](https://docs.sftpgo.com/2.6/cli/#portable-mode); if not in  Portable mode users must be added through gui / api calls
+* `az`/arozos:
   * configuration is primarily through GUI
   * reverse-proxy is not guaranteed to see the correct client IP
 
 
 ## server capabilities
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | accounts                | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ | █ |
 | per-account chroot      |   |   |   |   |   |   |   |   |   |   |   | █ |   |
 | single-sign-on          | ╱ |   |   | █ | █ |   |   |   | • |   |   |   |   |
 | token auth              | ╱ |   |   | █ | █ |   |   | █ |   |   |   |   | █ |
-| 2fa                     | ╱ |   |   | █ | █ |   |   |   |   |   |   | █ | ╱ |
+| 2fa                     | ╱ |   | / | █ | █ |   |   |   |   |   |   | █ | ╱ |
 | per-volume permissions  | █ | █ | █ | █ | █ | █ | █ |   | █ | █ | ╱ | █ | █ |
-| per-folder permissions  | ╱ |   |   | █ | █ |   | █ |   | █ | █ | ╱ | █ | █ |
-| per-file permissions    |   |   |   | █ | █ |   | █ |   | █ |   |   |   | █ |
-| per-file passwords      | █ |   |   | █ | █ |   | █ |   | █ |   |   |   | █ |
+| per-folder permissions  | ╱ |   | █ | █ | █ |   | █ |   | █ | █ | ╱ | █ | █ |
+| per-file permissions    |   |   | █ | █ | █ |   | █ |   | █ |   |   |   | █ |
+| per-file passwords      | █ |   |   | █ | █ |   | █ |   | █ |   |   | █ | █ |
 | unmap subfolders        | █ |   | █ |   |   |   | █ |   |   | █ | ╱ | • |   |
 | index.html blocks list  | ╱ |   |   |   |   |   | █ |   |   | • |   |   |   |
 | write-only folders      | █ |   | █ |   | █ |   |   |   |   |   | █ | █ |   |
@@ -297,13 +318,13 @@ symbol legend,
 | full sync               |   |   |   | █ | █ |   |   |   |   |   |   |   |   |
 | speed throttle          |   | █ | █ |   |   | █ |   |   | █ |   |   | █ |   |
 | anti-bruteforce         | █ | █ | █ | █ | █ |   |   |   | • |   |   | █ | • |
-| dyndns updater          |   | █ |   |   |   |   |   |   |   |   |   |   |   |
-| self-updater            |   |   | █ |   |   |   |   |   |   |   |   |   | █ |
+| dyndns updater          |   | █ | █ |   |   |   |   |   |   |   |   |   |   |
+| self-updater            | ╱ |   | █ |   |   |   |   |   |   |   |   |   | █ |
 | log rotation            | █ |   | █ | █ | █ |   |   | • | █ |   |   | █ | • |
 | upload tracking / log   | █ | █ | • | █ | █ |   |   | █ | █ |   |   | ╱ | █ |
 | prometheus metrics      | █ |   |   | █ |   |   |   |   |   |   |   | █ |   |
 | curl-friendly ls        | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| curl-friendly upload    | █ |   |   |   |   | █ | █ | • |   |   |   |   |   |
+| curl-friendly upload    | █ |   | █ |   |   | █ | █ | • |   |   |   |   |   |
 
 * `unmap subfolders` = "shadowing"; mounting a local folder in the middle of an existing filesystem tree in order to disable access below that path
 * `files stored as-is` = uploaded files are trivially readable from the server HDD, not sliced into chunks or in weird folder structures or anything like that
@@ -316,44 +337,46 @@ symbol legend,
 * `speed throttle` = rate limiting (per ip, per user, per connection, anything like that)
 * `curl-friendly ls` = returns a [sortable plaintext folder listing](https://user-images.githubusercontent.com/241032/215322619-ea5fd606-3654-40ad-94ee-2bc058647bb2.png) when curled
 * `curl-friendly upload` = uploading with curl is just `curl -T some.bin http://.../`
-* `a`/copyparty remarks:
+* `C`/copyparty remarks:
   * single-sign-on, token-auth, and 2fa is *possible* through authelia/authentik or similar, but nobody's made an example yet
   * one-way folder sync from local to server can be done efficiently with [u2c.py](https://github.com/9001/copyparty/tree/hovudstraum/bin#u2cpy), or with webdav and conventional rsync
   * can hot-reload config files (with just a few exceptions)
   * can set per-folder permissions if that folder is made into a separate volume, so there is configuration overhead
   * `index.html` on its own does not prevent directory listing, but permission `h` (instead of `r`) enforces index.html to be returned instead of folder contents
+  * [version-checker](https://github.com/9001/copyparty/#version-checker) can check if the current version has a known vulnerability and immediately exit/shutdown, but automatic self-updating is **not** available
   * [event hooks](https://github.com/9001/copyparty/tree/hovudstraum/bin/hooks) ([discord](https://user-images.githubusercontent.com/241032/215304439-1c1cb3c8-ec6f-4c17-9f27-81f969b1811a.png), [desktop](https://user-images.githubusercontent.com/241032/215335767-9c91ed24-d36e-4b6b-9766-fb95d12d163f.png)) inspired by filebrowser, as well as the more complex [media parser](https://github.com/9001/copyparty/tree/hovudstraum/bin/mtag) alternative
   * upload history can be visualized using [partyjournal](https://github.com/9001/copyparty/blob/hovudstraum/bin/partyjournal.py)
-* `k`/filegator remarks:
+* `fg`/filegator remarks:
   * `per-* permissions` -- can limit a user to one folder and its subfolders
   * `unmap subfolders` -- can globally filter a list of paths
-* `l`/sftpgo:
+* `sg`/sftpgo:
   * `file action event hooks` also include on-download triggers
   * `upload tracking / log` in main logfile
-* `m`/arozos:
+* `az`/arozos:
   * `2fa` maybe possible through LDAP/Oauth
-
+* `h3`/hfs3
+  * `2fa` available by installing a plugin
 
 ## client features
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------  | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------  |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | single-page app         | █ |   | █ | █ | █ |   |   | █ | █ | █ | █ |   | █ |
 | themes                  | █ | █ | █ | █ |   |   |   |   | █ |   |   |   |   |
 | directory tree nav      | █ | ╱ |   |   | █ |   |   |   | █ |   | ╱ |   |   |
-| multi-column sorting    | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| thumbnails              | █ |   |   | ╱ | ╱ |   |   | █ | █ | ╱ |   |   | █ |
-| ┗ image thumbnails      | █ |   |   | █ | █ |   |   | █ | █ | █ |   |   | █ |
+| multi-column sorting    | █ |   |   |   |   |   |   |   |   |   |   | █ |   |
+| thumbnails              | █ |   | / | ╱ | ╱ |   |   | █ | █ | ╱ |   |   | █ |
+| ┗ image thumbnails      | █ |   | / | █ | █ |   |   | █ | █ | █ |   |   | █ |
 | ┗ video thumbnails      | █ |   |   | █ | █ |   |   |   | █ |   |   |   | █ |
 | ┗ audio spectrograms    | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| audio player            | █ |   | ╱ | █ | █ |   |   |   | █ | ╱ |   |   | █ |
+| audio player            | █ |   | ╱ | █ | █ |   |   |   | █ | ╱ |   | ╱ | █ |
 | ┗ gapless playback      | █ |   |   |   |   |   |   |   | • |   |   |   |   |
 | ┗ audio equalizer       | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | ┗ waveform seekbar      | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| ┗ OS integration        | █ |   |   |   |   |   |   |   |   |   |   |   |   |
+| ┗ OS integration        | █ |   | █ |   |   |   |   |   |   |   |   |   |   |
 | ┗ transcode to lossy    | █ |   |   |   |   |   |   |   |   |   |   |   |   |
-| video player            | █ |   |   | █ | █ |   |   |   | █ | █ |   |   | █ |
-| ┗ video transcoding     |   |   |   |   |   |   |   |   | █ |   |   |   |   |
+| video player            | █ |   | █ | █ | █ |   |   |   | █ | █ |   | ╱ | █ |
+| ┗ video transcoding     |   |   | / |   |   |   |   |   | █ |   |   |   |   |
 | audio BPM detector      | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | audio key detector      | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | search by path / name   | █ | █ | █ | █ | █ |   | █ |   | █ | █ | ╱ |   |   |
@@ -365,50 +388,51 @@ symbol legend,
 | find local file         | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | undo recent uploads     | █ |   |   |   |   |   |   |   |   |   |   |   |   |
 | create directories      | █ |   | █ | █ | █ | ╱ | █ | █ | █ | █ | █ | █ | █ |
-| image viewer            | █ |   | █ | █ | █ |   |   |   | █ | █ | █ |   | █ |
-| markdown viewer         | █ |   |   |   | █ |   |   |   | █ | ╱ | ╱ |   | █ |
-| markdown editor         | █ |   |   |   | █ |   |   |   | █ | ╱ | ╱ |   | █ |
-| readme.md in listing    | █ |   |   | █ |   |   |   |   |   |   |   |   |   |
+| image viewer            | █ |   | █ | █ | █ |   |   |   | █ | █ | █ | █ | █ |
+| markdown viewer         | █ |   | / |   | █ |   |   |   | █ | ╱ | ╱ |   | █ |
+| markdown editor         | █ |   |   |   | █ |   |   |   | █ | ╱ | ╱ | ╱ | █ |
+| readme.md in listing    | █ |   | / | █ |   |   |   |   |   |   |   |   |   |
 | rename files            | █ | █ | █ | █ | █ | ╱ | █ |   | █ | █ | █ | █ | █ |
 | batch rename            | █ |   |   |   |   |   |   |   | █ |   |   |   |   |
-| cut / paste files       | █ | █ |   | █ | █ |   |   |   | █ |   |   |   | █ |
-| move files              | █ | █ | █ | █ | █ |   | █ |   | █ | █ | █ |   | █ |
+| cut / paste files       | █ | █ | █ | █ | █ |   |   |   | █ |   |   |   | █ |
+| move files              | █ | █ | █ | █ | █ |   | █ |   | █ | █ | █ | █ | █ |
 | delete files            | █ | █ | █ | █ | █ | ╱ | █ | █ | █ | █ | █ | █ | █ |
-| copy files              |   |   |   |   | █ |   |   |   | █ | █ | █ |   | █ |
+| copy files              |   |   | / |   | █ |   |   |   | █ | █ | █ | █ | █ |
 
 * `single-page app` = multitasking; possible to continue navigating while uploading
 * `audio player » os-integration` = use the [lockscreen](https://user-images.githubusercontent.com/241032/142711926-0700be6c-3e31-47b3-9928-53722221f722.png) or [media hotkeys](https://user-images.githubusercontent.com/241032/215347492-b4250797-6c90-4e09-9a4c-721edf2fb15c.png) to play/pause, prev/next song
 * `search by custom tags` = ability to tag files through the UI and search by those
 * `find local file` = drop a file into the browser to see if it exists on the server
 * `undo recent uploads` = accounts without delete permissions have a time window where they can undo their own uploads
-* `a`/copyparty has teeny-tiny skips playing gapless albums depending on audio codec (opus best)
-* `b`/hfs2 has a very basic directory tree view, not showing sibling folders
-* `c`/hfs3 remarks:
-  * audio playback does not continue into next song
-* `f`/rclone can do some file management (mkdir, rename, delete) when hosting througn webdav
-* `j`/filebrowser remarks:
+* `C`/copyparty has teeny-tiny skips playing gapless albums depending on audio codec (opus best)
+* `h2`/hfs2 has a very basic directory tree view, not showing sibling folders
+* `rc`/rclone can do some file management (mkdir, rename, delete) when hosting througn webdav
+* `fg`/filebrowser remarks:
   * audio playback does not continue into next song
   * plaintext viewer/editor
-* `k`/filegator directory tree is a modal window
+* `fg`/filegator directory tree is a modal window
+* `sg`/sftpgo remarks:
+  * audio/video playback does not continue into next song/video
+  * plaintext viewer/editor
 
 
 ## integration
 
-| feature / software      | a | b | c | d | e | f | g | h | i | j | k | l | m |
-| ----------------------- | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| OS alert on upload      | █ |   |   |   |   |   |   |   |   | ╱ |   | ╱ |   |
-| discord                 | █ |   |   |   |   |   |   |   |   | ╱ |   | ╱ |   |
-| ┗ announce uploads      | █ |   |   |   |   |   |   |   |   |   |   | ╱ |   |
+| feature / software      |[C]|[h2]|[h3]|[nc]|[sf]|[rc]|[df]|[cs]|[kb]|[fb]|[fg]|[sg]|[az]|
+| ----------------------- |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| OS alert on upload      | ╱ |   |   |   |   |   |   |   |   | ╱ |   | ╱ |   |
+| discord                 | ╱ |   |   |   |   |   |   |   |   | ╱ |   | ╱ |   |
+| ┗ announce uploads      | ╱ |   |   |   |   |   |   |   |   |   |   | ╱ |   |
 | ┗ custom embeds         |   |   |   |   |   |   |   |   |   |   |   | ╱ |   |
 | sharex                  | █ |   |   | █ |   | █ | ╱ | █ |   |   |   |   |   |
 | flameshot               |   |   |   |   |   | █ |   |   |   |   |   |   |   |
 
 * sharex `╱` = yes, but does not provide example sharex config
-* `a`/copyparty remarks:
+* `C`/copyparty remarks:
   * `OS alert on upload` available as [a plugin](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/notify.py)
   * `discord » announce uploads` available as [a plugin](https://github.com/9001/copyparty/blob/hovudstraum/bin/hooks/discord-announce.py)
-* `j`/filebrowser can probably pull those off with command runners similar to copyparty
-* `l`/sftpgo has nothing built-in but is very extensible
+* `fg`/filebrowser can probably pull those off with command runners similar to copyparty
+* `sg`/sftpgo has nothing built-in but is very extensible
 
 
 ## another matrix
@@ -471,10 +495,8 @@ symbol legend,
 * vfs with gui config, per-volume permissions
 * tested locally, v0.53.2 on archlinux
 * 🔵 uploads are resumable
-* ⚠️ uploads are not segmented; max upload size 100 MiB on cloudflare
 * ⚠️ uploads are not accelerated (copyparty is 3x faster across the atlantic)
 * ⚠️ uploads are not integrity-checked
-* ⚠️ copies the file after upload; need twice filesize free disk space
 * ⚠️ uploading small files is decent; `107` files per sec (copyparty does `670`/sec, 6x faster)
 * ⚠️ doesn't support crazy filenames
 * ✅ config GUI
@@ -575,7 +597,7 @@ symbol legend,
 * ✅ file tags; file discussions!?
 * ✅ video transcoding
 * ✅ unzip uploaded archives
-* ✅ IDE with syntax hilighting
+* ✅ IDE with syntax highlighting
 * ✅ wysiwyg editor for openoffice files
 
 ## [filebrowser](https://github.com/filebrowser/filebrowser)
@@ -617,16 +639,13 @@ symbol legend,
   * ⚠️ across the atlantic, copyparty is 2.5x faster
   * 🔵 sftp uploads are resumable
 * ⚠️ web UI is very minimal + a bit slow
-  * ⚠️ no thumbnails / image viewer / audio player
-  * ⚠️ basic file manager (no cut/paste/move)
+  * ⚠️ no thumbnails
 * ⚠️ no filesystem indexing / search
-* ⚠️ doesn't run on phones, tablets
 * ⚠️ no zeroconf (mdns/ssdp)
 * ⚠️ impractical directory URLs
 * ⚠️ AGPL licensed
 * 🔵 uploading small files is fast; `340` files per sec (copyparty does `670`/sec)
-* 🔵 ftp, ftps, webdav
-* ✅ sftp server
+* 🔵 sftp, ftp, ftps, webdav
 * ✅ settings gui
 * ✅ acme (automatic tls certs)
   * 💾 relies on caddy/certbot/acme.sh
@@ -652,7 +671,6 @@ symbol legend,
 * ⚠️ not self-contained (pulls from jsdelivr)
 * ⚠️ has an audio player, but supports less filetypes
 * ⚠️ limited support for configuring real-ip detection
-* ✅ sftp server
 * ✅ settings gui
 * ✅ good-looking gui
 * ✅ an IDE, msoffice viewer, rich host integration, much more
@@ -759,7 +777,7 @@ symbol legend,
 
 
 # briefly considered
-* [pydio](https://github.com/pydio/cells): python/agpl3, looks great, fantastic ux -- but needs mariadb, systemwide install
+* [pydio](https://github.com/pydio/cells): go/agpl3, looks great, fantastic ux -- but needs mariadb, systemwide install, SSO is 3280€/year
 * [gossa](https://github.com/pldubouilh/gossa): go/mit, minimalistic, basic file upload, text editor, mkdir and rename (no delete/move)
 
 

@@ -5,7 +5,7 @@
 turn almost any device into a file server with resumable uploads/downloads using [*any*](#browser-support) web browser
 
 * server only needs Python (2 or 3), all dependencies optional
-* 🔌 protocols: [http](#the-browser) // [webdav](#webdav-server) // [ftp](#ftp-server) // [tftp](#tftp-server) // [smb/cifs](#smb-server)
+* 🔌 protocols: [http(s)](#the-browser) // [webdav](#webdav-server) // [sftp](#sftp-server) // [ftp(s)](#ftp-server) // [tftp](#tftp-server) // [smb/cifs](#smb-server)
 * 📱 [android app](#android-app) // [iPhone shortcuts](#ios-shortcuts)
 
 👉 **[Get started](#quickstart)!** or visit the **[read-only demo server](https://a.ocv.me/pub/demo/)** 👀 running on a nuc in my basement
@@ -14,13 +14,14 @@ turn almost any device into a file server with resumable uploads/downloads using
 
 🎬 **videos:** [upload](https://a.ocv.me/pub/demo/pics-vids/up2k.webm) // [cli-upload](https://a.ocv.me/pub/demo/pics-vids/u2cli.webm) // [race-the-beam](https://a.ocv.me/pub/g/nerd-stuff/cpp/2024-0418-race-the-beam.webm) // 👉 **[feature-showcase](https://a.ocv.me/pub/demo/showcase-hq.webm)** ([youtube](https://www.youtube.com/watch?v=15_-hgsX2V0))
 
-made in Norway 🇳🇴
+built in Norway 🇳🇴 with contributions from [not-norway](https://github.com/9001/copyparty/graphs/contributors)
 
 
 ## readme toc
 
 * top
     * [quickstart](#quickstart) - just run **[copyparty-sfx.py](https://github.com/9001/copyparty/releases/latest/download/copyparty-sfx.py)** -- that's it! 🎉
+        * [mirrors](#mirrors) - other places to download copyparty from
         * [at home](#at-home) - make it accessible over the internet
         * [on servers](#on-servers) - you may also want these, especially on servers
     * [features](#features) - also see [comparison to similar software](./docs/versus.md)
@@ -50,6 +51,7 @@ made in Norway 🇳🇴
     * [shares](#shares) - share a file or folder by creating a temporary link
     * [batch rename](#batch-rename) - select some files and press `F2` to bring up the rename UI
     * [rss feeds](#rss-feeds) - monitor a folder with your RSS reader
+    * [opds feeds](#opds-feeds) - browse and download files from your e-book reader
     * [recent uploads](#recent-uploads) - list all recent uploads
     * [media player](#media-player) - plays almost every audio format there is
         * [playlists](#playlists) - create and play [m3u8](https://en.wikipedia.org/wiki/M3U) playlists
@@ -62,11 +64,14 @@ made in Norway 🇳🇴
     * [other tricks](#other-tricks)
     * [searching](#searching) - search by size, date, path/name, mp3-tags, ...
 * [server config](#server-config) - using arguments or config files, or a mix of both
+    * [version-checker](#version-checker) - sleep better at night
+    * [logging](#logging) - serverlog is sent to stdout by default
     * [zeroconf](#zeroconf) - announce enabled services on the LAN ([pic](https://user-images.githubusercontent.com/241032/215344737-0eae8d98-9496-4256-9aa8-cd2f6971810d.png))
         * [mdns](#mdns) - LAN domain-name and feature announcer
         * [ssdp](#ssdp) - windows-explorer announcer
     * [qr-code](#qr-code) - print a qr-code [(screenshot)](https://user-images.githubusercontent.com/241032/194728533-6f00849b-c6ac-43c6-9359-83e454d11e00.png) for quick access
     * [ftp server](#ftp-server) - an FTP server can be started using `--ftp 3921`
+    * [sftp server](#sftp-server) - goes roughly 700 MiB/s (slower than webdav and ftp)
     * [webdav server](#webdav-server) - with read-write support
         * [connecting to webdav from windows](#connecting-to-webdav-from-windows) - using the GUI
     * [tftp server](#tftp-server) - a TFTP server (read/write) can be started using `--tftp 3969`
@@ -80,16 +85,23 @@ made in Norway 🇳🇴
         * [periodic rescan](#periodic-rescan) - filesystem monitoring
     * [upload rules](#upload-rules) - set upload rules using volflags
     * [compress uploads](#compress-uploads) - files can be autocompressed on upload
+    * [chmod and chown](#chmod-and-chown) - per-volume filesystem-permissions and ownership
     * [other flags](#other-flags)
+    * [descript.ion](#description) - add a description to each file in a folder
+    * [dothidden](#dothidden) - cosmetically hide specific files in a folder
+    * [thumbnail pregen](#thumbnail-pregen) - if you want to pre-generate everything on startup
     * [database location](#database-location) - in-volume (`.hist/up2k.db`, default) or somewhere else
     * [metadata from audio files](#metadata-from-audio-files) - set `-e2t` to index tags on upload
+        * [metadata from xattrs](#metadata-from-xattrs) - unix extended file attributes
     * [file parser plugins](#file-parser-plugins) - provide custom parsers to index additional tags
     * [event hooks](#event-hooks) - trigger a program on uploads, renames etc ([examples](./bin/hooks/))
         * [zeromq](#zeromq) - event-hooks can send zeromq messages
         * [upload events](#upload-events) - the older, more powerful approach ([examples](./bin/mtag/))
     * [handlers](#handlers) - redefine behavior with plugins ([examples](./bin/handlers/))
     * [ip auth](#ip-auth) - autologin based on IP range (CIDR)
+        * [restrict to ip](#restrict-to-ip) - limit a user to certain IP ranges (CIDR)
     * [identity providers](#identity-providers) - replace copyparty passwords with oauth and such
+        * [generic header auth](#generic-header-auth) - other ways to auth by header
     * [user-changeable passwords](#user-changeable-passwords) - if permitted, users can change their own passwords
     * [using the cloud as storage](#using-the-cloud-as-storage) - connecting to an aws s3 bucket and similar
     * [hiding from google](#hiding-from-google) - tell search engines you don't wanna be indexed
@@ -109,9 +121,12 @@ made in Norway 🇳🇴
 * [packages](#packages) - the party might be closer than you think
     * [arch package](#arch-package) - `pacman -S copyparty` (in [arch linux extra](https://archlinux.org/packages/extra/any/copyparty/))
     * [fedora package](#fedora-package) - does not exist yet
+    * [gentoo ::guru package](#gentoo-guru-package) - `emerge www-servers/copyparty::guru` (in [::guru](https://wiki.gentoo.org/wiki/Project:GURU))
+    * [homebrew formulae](#homebrew-formulae) - `brew install copyparty ffmpeg`
     * [nix package](#nix-package) - `nix profile install github:9001/copyparty`
     * [nixos module](#nixos-module)
 * [browser support](#browser-support) - TLDR: yes
+* [server hall of fame](#server-hall-of-fame) - unexpected things that run copyparty
 * [client examples](#client-examples) - interact with copyparty using non-browser clients
     * [folder sync](#folder-sync) - sync folders to/from copyparty
     * [mount as drive](#mount-as-drive) - a remote copyparty server as a local filesystem
@@ -119,7 +134,7 @@ made in Norway 🇳🇴
 * [iOS shortcuts](#iOS-shortcuts) - there is no iPhone app, but
 * [performance](#performance) - defaults are usually fine - expect `8 GiB/s` download, `1 GiB/s` upload
     * [client-side](#client-side) - when uploading files
-* [security](#security) - there is a [discord server](https://discord.gg/25J8CdTT6G)
+* [security](#security) - there is a [discord server](https://discord.gg/25J8CdTT6G) with announcements
     * [gotchas](#gotchas) - behavior that might be unexpected
     * [cors](#cors) - cross-site request config
     * [filekeys](#filekeys) - prevent filename bruteforcing
@@ -131,13 +146,15 @@ made in Norway 🇳🇴
         * [firefox wsod](#firefox-wsod) - firefox 87 can crash during uploads
 * [HTTP API](#HTTP-API) - see [devnotes](./docs/devnotes.md#http-api)
 * [dependencies](#dependencies) - mandatory deps
-    * [optional dependencies](#optional-dependencies) - install these to enable bonus features
+    * [optional dependencies](#optional-dependencies) - enable bonus features
         * [dependency chickenbits](#dependency-chickenbits) - prevent loading an optional dependency
+        * [dependency unvendoring](#dependency-unvendoring) - force use of system modules
     * [optional gpl stuff](#optional-gpl-stuff)
 * [sfx](#sfx) - the self-contained "binary" (recommended!)
     * [copyparty.exe](#copypartyexe) - download [copyparty.exe](https://github.com/9001/copyparty/releases/latest/download/copyparty.exe) (win8+) or [copyparty32.exe](https://github.com/9001/copyparty/releases/latest/download/copyparty32.exe) (win7+)
     * [zipapp](#zipapp) - another emergency alternative, [copyparty.pyz](https://github.com/9001/copyparty/releases/latest/download/copyparty.pyz)
 * [install on android](#install-on-android)
+* [install on iOS](#install-on-iOS)
 * [reporting bugs](#reporting-bugs) - ideas for context to include, and where to submit them
 * [devnotes](#devnotes) - for build instructions etc, see [./docs/devnotes.md](./docs/devnotes.md)
 
@@ -146,11 +163,15 @@ made in Norway 🇳🇴
 
 just run **[copyparty-sfx.py](https://github.com/9001/copyparty/releases/latest/download/copyparty-sfx.py)** -- that's it! 🎉
 
+> ℹ️ the sfx is a [self-extractor](https://github.com/9001/copyparty/issues/270) which unpacks an embedded `tar.gz` into `$TEMP` -- if this looks too scary, you can use the [zipapp](#zipapp) which has slightly worse performance
+
 * or install through [pypi](https://pypi.org/project/copyparty/): `python3 -m pip install --user -U copyparty`
 * or if you cannot install python, you can use [copyparty.exe](#copypartyexe) instead
-* or install [on arch](#arch-package) ╱ [on NixOS](#nixos-module) ╱ [through nix](#nix-package)
+* or install [on arch](#arch-package) / [homebrew](#homebrew-formulae) ╱ [on NixOS](#nixos-module) ╱ [through nix](#nix-package)
 * or if you are on android, [install copyparty in termux](#install-on-android)
+* or maybe an iPhone or iPad? [install in a-Shell on iOS](#install-on-iOS)
 * or maybe you have a [synology nas / dsm](./docs/synology-dsm.md)
+* or if you have [uv](https://docs.astral.sh/uv/) installed, run `uv tool run copyparty`
 * or if your computer is messed up and nothing else works, [try the pyz](#zipapp)
 * or if your OS is dead, give the [bootable flashdrive / cd-rom](https://a.ocv.me/pub/stuff/edcd001/enterprise-edition/) a spin
 * or if you don't trust copyparty yet and want to isolate it a little, then...
@@ -164,7 +185,7 @@ enable thumbnails (images/audio/video), media indexing, and audio transcoding by
 * **Alpine:** `apk add py3-pillow ffmpeg`
 * **Debian:** `apt install --no-install-recommends python3-pil ffmpeg`
 * **Fedora:** rpmfusion + `dnf install python3-pillow ffmpeg --allowerasing`
-* **FreeBSD:** `pkg install py39-sqlite3 py39-pillow ffmpeg`
+* **FreeBSD:** `pkg install py311-sqlite3 py311-pillow ffmpeg`
 * **MacOS:** `port install py-Pillow ffmpeg`
 * **MacOS** (alternative): `brew install pillow ffmpeg`
 * **Windows:** `python -m pip install --user -U Pillow`
@@ -181,7 +202,19 @@ some recommended options:
 * `-e2ts` enables audio metadata indexing (needs either FFprobe or Mutagen)
 * `-v /mnt/music:/music:r:rw,foo -a foo:bar` shares `/mnt/music` as `/music`, `r`eadable by anyone, and read-write for user `foo`, password `bar`
   * replace `:r:rw,foo` with `:r,foo` to only make the folder readable by `foo` and nobody else
-  * see [accounts and volumes](#accounts-and-volumes) (or `--help-accounts`) for the syntax and other permissions
+  * see [accounts and volumes](#accounts-and-volumes) (or [`--help-accounts`](https://copyparty.eu/cli/#accounts-help-page)) for the syntax and other permissions
+
+
+### mirrors
+
+other places to download copyparty from  (non-github links):
+
+* https://copyparty.eu/ (hetzner, finland, official mirror):
+  * https://copyparty.eu/py = https://copyparty.eu/copyparty-sfx.py = the sfx
+  * https://copyparty.eu/en = https://copyparty.eu/copyparty-en.py = the english-only sfx
+  * https://copyparty.eu/pyz = https://copyparty.eu/copyparty.pyz = the zipapp
+  * https://copyparty.eu/enz = https://copyparty.eu/copyparty-en.pyz = the enterprise pyz
+  * https://copyparty.eu/cli = online cli helptext
 
 
 ### at home
@@ -203,6 +236,7 @@ you may also want these, especially on servers:
 
 * [contrib/systemd/copyparty.service](contrib/systemd/copyparty.service) to run copyparty as a systemd service (see guide inside)
 * [contrib/systemd/prisonparty.service](contrib/systemd/prisonparty.service) to run it in a chroot (for extra security)
+* [contrib/podman-systemd/](contrib/podman-systemd/) to run copyparty in a Podman container as a systemd service (see guide inside)
 * [contrib/openrc/copyparty](contrib/openrc/copyparty) to run copyparty on Alpine / Gentoo
 * [contrib/rc/copyparty](contrib/rc/copyparty) to run copyparty on FreeBSD
 * [nixos module](#nixos-module) to run copyparty on NixOS hosts
@@ -210,12 +244,12 @@ you may also want these, especially on servers:
 
 and remember to open the ports you want; here's a complete example including every feature copyparty has to offer:
 ```
-firewall-cmd --permanent --add-port={80,443,3921,3923,3945,3990}/tcp  # --zone=libvirt
+firewall-cmd --permanent --add-port={80,443,3921,3922,3923,3945,3990}/tcp  # --zone=libvirt
 firewall-cmd --permanent --add-port=12000-12099/tcp  # --zone=libvirt
 firewall-cmd --permanent --add-port={69,1900,3969,5353}/udp  # --zone=libvirt
 firewall-cmd --reload
 ```
-(69:tftp, 1900:ssdp, 3921:ftp, 3923:http/https, 3945:smb, 3969:tftp, 3990:ftps, 5353:mdns, 12000:passive-ftp)
+(69:tftp, 1900:ssdp, 3921:ftp, 3922:sftp, 3923:http/https, 3945:smb, 3969:tftp, 3990:ftps, 5353:mdns, 12000:passive-ftp)
 
 
 ## features
@@ -235,7 +269,7 @@ also see [comparison to similar software](./docs/versus.md)
   * ☑ [upnp / zeroconf / mdns / ssdp](#zeroconf)
   * ☑ [event hooks](#event-hooks) / script runner
   * ☑ [reverse-proxy support](https://github.com/9001/copyparty#reverse-proxy)
-  * ☑ cross-platform (Windows, Linux, Macos, Android, FreeBSD, arm32/arm64, ppc64le, s390x, risc-v/riscv64)
+  * ☑ cross-platform (Windows, Linux, Macos, Android, iOS, FreeBSD, arm32/arm64, ppc64le, s390x, risc-v/riscv64, SGI IRIX)
 * upload
   * ☑ basic: plain multipart, ie6 support
   * ☑ [up2k](#uploading): js, resumable, multithreaded
@@ -258,10 +292,12 @@ also see [comparison to similar software](./docs/versus.md)
     * ☑ play video files as audio (converted on server)
     * ☑ create and play [m3u8 playlists](#playlists)
   * ☑ image gallery with webm player
-  * ☑ [textfile browser](#textfile-viewer) with syntax hilighting
+    * ☑ and cbz manga/comics reader
+  * ☑ [textfile browser](#textfile-viewer) with syntax highlighting
     * ☑ realtime streaming of growing files (logfiles and such)
   * ☑ [thumbnails](#thumbnails)
     * ☑ ...of images using Pillow, pyvips, or FFmpeg
+    * ☑ ...of RAW images using rawpy
     * ☑ ...of videos using FFmpeg
     * ☑ ...of audio (spectrograms) using FFmpeg
     * ☑ cache eviction (max-age; maybe max-size eventually)
@@ -296,7 +332,7 @@ small collection of user feedback
 
 project goals / philosophy
 
-* inverse linux philosophy -- do all the things, and do an *okay* job
+* inverse unix philosophy -- do all the things, and do an *okay* job
   * quick drop-in service to get a lot of features in a pinch
   * some of [the alternatives](./docs/versus.md) might be a better fit for you
 * run anywhere, support everything
@@ -370,6 +406,8 @@ same order here too
 
 * [Firefox issue 1790500](https://bugzilla.mozilla.org/show_bug.cgi?id=1790500) -- entire browser can crash after uploading ~4000 small files
 
+* Windows: Uploading from a webbrowser may fail with "directory iterator got stuck" due to the [max path length](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry); try moving the files somewhere shorter before uploading
+
 * Android: music playback randomly stops due to [battery usage settings](#fix-unreliable-playback-on-android)
 
 * iPhones: the volume control doesn't work because [apple doesn't want it to](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Device-SpecificConsiderations/Device-SpecificConsiderations.html#//apple_ref/doc/uid/TP40009523-CH5-SW11)
@@ -424,6 +462,12 @@ upgrade notes
 * CopyParty?
   * nope! the name is either copyparty (all-lowercase) or Copyparty -- it's [one word](https://en.wiktionary.org/wiki/copyparty) after all :>
 
+* what is a volflag?
+  * per-volume configuration; many (not all) global-options can be set as volflags, and most (not all) volflags can be set as global-options; [complete list of volflags](https://copyparty.eu/cli/#flags-help-page)
+
+* what is a volume?
+  * a mapping from a URL (`/music/`) to a folder on your server's local filesystem (`C:\Users\ed\Music`) which can then be accessed through copyparty, depending on the permissions and options you set on it -- see [accounts and volumes](#accounts-and-volumes)
+
 * can I change the 🌲 spinning pine-tree loading animation?
   * [yeah...](https://github.com/9001/copyparty/tree/hovudstraum/docs/rice#boring-loader-spinner) :-(
 
@@ -433,6 +477,8 @@ upgrade notes
 
 * can I link someone to a password-protected volume/file by including the password in the URL?
   * yes, by adding `?pw=hunter2` to the end; replace `?` with `&` if there are parameters in the URL already, meaning it contains a `?` near the end
+    * if you have enabled `--usernames` then do `?pw=username:password` instead
+    * `?pw` can be disabled with `--pw-urlp=A` but this breaks support for many clients
 
 * how do I stop `.hist` folders from appearing everywhere on my HDD?
   * by default, a `.hist` folder is created inside each volume for the filesystem index, thumbnails, audio transcodes, and markdown document history. Use the `--hist` global-option or the `hist` volflag to move it somewhere else; see [database location](#database-location)
@@ -452,6 +498,9 @@ upgrade notes
 * thumbnails are broken (you get a colorful square which says the filetype instead)
   * you need to install `FFmpeg` or `Pillow`; see [thumbnails](#thumbnails)
 
+* thumbnails are broken, specifically for photos and videos taken by iphones
+  * the [docker image](https://github.com/9001/copyparty/blob/hovudstraum/scripts/docker) and [bootable flashdrive](https://a.ocv.me/pub/stuff/edcd001/enterprise-edition/) are not able to read heif/heic images and h265/HEVC video due to [legal reasons](docs/bad-codecs.md)
+
 * thumbnails are broken (some images appear, but other files just get a blank box, and/or the broken-image placeholder)
   * probably due to a reverse-proxy messing with the request URLs and stripping the query parameters (`?th=w`), so check your URL rewrite rules
   * could also be due to incorrect caching settings in reverse-proxies and/or CDNs, so make sure that nothing is set to ignore the query string
@@ -470,7 +519,7 @@ per-folder, per-user permissions  - if your setup is getting complex, consider m
 * much easier to manage, and you can modify the config at runtime with `systemctl reload copyparty` or more conveniently using the `[reload cfg]` button in the control-panel (if the user has `a`/admin in any volume)
   * changes to the `[global]` config section requires a restart to take effect
 
-a quick summary can be seen using `--help-accounts`
+a quick summary can be seen using [`--help-accounts`](https://copyparty.eu/cli/#accounts-help-page)
 
 configuring accounts/volumes with arguments:
 * `-a usr:pwd` adds account `usr` with password `pwd`
@@ -507,15 +556,25 @@ examples:
   * replacing the `g` permission with `wg` would let anonymous users upload files, but not see the required filekey to access it
   * replacing the `g` permission with `wG` would let anonymous users upload files, receiving a working direct link in return
 
+if you want to grant access to all users who are logged in, the group `acct` will always contain all known users, so for example `-v /mnt/music:music:r,@acct`
+
+* to do the opposite, granting access to everyone who is NOT logged in. `*,-@acct` does the trick, for example `-v /srv/welcome:welcome:r,*,-@acct`
+* single users can also be subtracted from a group: `@admins,-james`
+
 anyone trying to bruteforce a password gets banned according to `--ban-pw`; default is 24h ban for 9 failed attempts in 1 hour
 
 and if you want to use config files instead of commandline args (good!) then here's the same examples as a configfile; save it as `foobar.conf` and use it like this: `python copyparty-sfx.py -c foobar.conf`
+
+* you can also `PRTY_CONFIG=foobar.conf python copyparty-sfx.py` (convenient in docker etc)
 
 ```yaml
 [accounts]
   u1: p1  # create account "u1" with password "p1"
   u2: p2  #  (note that comments must have
   u3: p3  #   two spaces before the # sign)
+
+[groups]
+  g1: u1, u2  # create a group
 
 [/]     # this URL will be mapped to...
   /srv  # ...this folder on the server filesystem
@@ -526,6 +585,8 @@ and if you want to use config files instead of commandline args (good!) then her
   /mnt/music   # which is mapped to this folder
   accs:
     r: u1, u2  # only these accounts can read,
+    r: @g1     # (exactly the same, just with a group instead)
+    r: @acct   # (alternatively, ALL users who are logged in)
     rw: u3     # and only u3 can read-write
 
 [/inc]
@@ -548,9 +609,13 @@ and if you want to use config files instead of commandline args (good!) then her
 
 hiding specific subfolders  by mounting another volume on top of them
 
-for example `-v /mnt::r -v /var/empty:web/certs:r` mounts the server folder `/mnt` as the webroot, but another volume is mounted at `/web/certs` -- so visitors can only see the contents of `/mnt` and `/mnt/web` (at URLs `/` and `/web`), but not `/mnt/web/certs` because URL `/web/certs` is mapped to `/var/empty`
+for example `-v /mnt::r -v /var/empty:web/certs:` (note: no permissions) mounts the server folder `/mnt` as the webroot, but another volume is mounted at `/web/certs` -- so visitors can only see the contents of `/mnt` and `/mnt/web` (at URLs `/` and `/web`), but not `/mnt/web/certs` because URL `/web/certs` is mapped to `/var/empty`
 
 the example config file right above this section may explain this better; the first volume `/` is mapped to `/srv` which means http://127.0.0.1:3923/music would try to read `/srv/music` on the server filesystem, but since there's another volume at `/music` mapped to `/mnt/music` then it'll go to `/mnt/music` instead
+
+so, to shadow a file/folder, define a volume but leave out the `accs:` section
+
+> ℹ️ this also works for single files, because files can also be volumes
 
 
 ## dotfiles
@@ -560,6 +625,8 @@ unix-style hidden files/folders  by starting the name with a dot
 anyone can access these if they know the name, but they normally don't appear in directory listings
 
 a client can request to see dotfiles in directory listings if global option `-ed` is specified, or the volume has volflag `dots`, or the user has permission `.`
+
+> for [shares](#shares), the `dots` volflag is ignored
 
 dotfiles do not appear in search results unless one of the above is true, **and** the global option / volflag `dotsrch` is set
 
@@ -593,7 +660,7 @@ the main tabs in the ui
 * `[🧯]` [unpost](#unpost): undo/delete accidental uploads
 * `[🚀]` and `[🎈]` are the [uploaders](#uploading)
 * `[📂]` mkdir: create directories
-* `[📝]` new-md: create a new markdown document
+* `[📝]` new-file: create a new textfile
 * `[📟]` send-msg: either to server-log or into textfiles if `--urlform save`
 * `[🎺]` audio-player config options
 * `[⚙️]` general client config options
@@ -706,6 +773,10 @@ to show `/icons/exe.png` and `/icons/elf.gif` as the thumbnail for all `.exe` an
 * the supported image formats are [jpg, png, gif, webp, ico](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Image_types)
   * be careful with svg; chrome will crash if you have too many unique svg files showing on the same page (the limit is 250 or so) -- showing the same handful of svg files thousands of times is ok however
 
+note:
+* heif/heifs/heic/heics images usually require the `libvips` [optional dependency](#optional-dependencies) but this is not possible with the docker-images due to [legal reasons](docs/bad-codecs.md)
+* if you do not want thumbnails to be generated on-the-fly, and instead wish to generate all of them on server startup, then see [thumbnail pregen](#thumbnail-pregen)
+
 config file example:
 
 ```yaml
@@ -760,8 +831,10 @@ you can also zip a selection of files or folders by clicking them in the browser
 
 cool trick: download a folder by appending url-params `?tar&opus` or `?tar&mp3` to transcode all audio files (except aac|m4a|mp3|ogg|opus|wma) to opus/mp3 before they're added to the archive
 * super useful if you're 5 minutes away from takeoff and realize you don't have any music on your phone but your server only has flac files and downloading those will burn through all your data + there wouldn't be enough time anyways
+* and url-param `&nodot` skips dotfiles/dotfolders; they are included by default if your account has permission to see them
 * and url-params `&j` / `&w` produce jpeg/webm thumbnails/spectrograms instead of the original audio/video/images (`&p` for audio waveforms)
   * can also be used to pregenerate thumbnails; combine with `--th-maxage=9999999` or `--th-clean=0`
+    * but now there is also a real [thumbnail pregen](#thumbnail-pregen) so just use that
 
 
 ## uploading
@@ -814,7 +887,7 @@ the up2k UI is the epitome of polished intuitive experiences:
 * `[🔎]` switch between upload and [file-search](#file-search) mode
   * ignore `[🔎]` if you add files by dragging them into the browser
 
-and then theres the tabs below it,
+and then there's the tabs below it,
 * `[ok]` is the files which completed successfully
 * `[ng]` is the ones that failed / got rejected (already exists, ...)
 * `[done]` shows a combined list of `[ok]` and `[ng]`, chronological order
@@ -845,6 +918,8 @@ the files will be hashed on the client-side, and each hash is sent to the server
 
 files go into `[ok]` if they exist (and you get a link to where it is), otherwise they land in `[ng]`
 * the main reason filesearch is combined with the uploader is cause the code was too spaghetti to separate it out somewhere else, this is no longer the case but now i've warmed up to the idea too much
+
+if you have a "wark" (file-identifier/checksum) then you can also search for that in the [🔎] tab by putting `w = kFpDiztbZc8Z1Lzi` in the `raw` field
 
 
 ### unpost
@@ -941,6 +1016,8 @@ specify `--shr /foobar` to enable this feature; a toplevel virtual folder named 
 
 users can delete their own shares in the controlpanel, and a list of privileged users (`--shr-adm`) are allowed to see and/or delet any share on the server
 
+the volflag `--shr-who` lets you control who can create a share from that volume, either `no` (nobody), `a` (people with admin permission), or `auth` (people who are logged in) 
+
 after a share has expired, it remains visible in the controlpanel for `--shr-rt` minutes (default is 1 day), and the owner can revive it by extending the expiration time there
 
 **security note:** using this feature does not mean that you can skip the [accounts and volumes](#accounts-and-volumes) section -- you still need to restrict access to volumes that you do not intend to share with unauthenticated users! it is not sufficient to use rules in the reverseproxy to restrict access to just the `/share` folder.
@@ -971,6 +1048,8 @@ in advanced mode,
 available functions:
 * `$lpad(text, length, pad_char)`
 * `$rpad(text, length, pad_char)`
+
+two counters are available; `.n.s` is the nth file in the selection, and `.n.d` the nth file in the folder, for example rename-output `file(.n.d).(ext)` gives `file5.bin`, and `beach-$lpad((.n.s),3,0).(ext)` is `beach-017.jpg` and the initial value of each counter can be set in the textboxes underneath the preset dropdown
 
 so,
 
@@ -1006,6 +1085,9 @@ a feed example: https://cd.ocv.me/a/d2/d22/?rss&fext=mp3
 url parameters:
 
 * `pw=hunter2` for password auth
+  * if you enabled `--usernames` then do `pw=username:password` instead
+* `nopw` disables embedding the password (if provided) into item-URLs in the feed
+* `nopw=a` disables mentioning the password anywhere at all in the feed; may break some readers
 * `recursive` to also include subfolders
 * `title=foo` changes the feed title (default: folder name)
 * `fext=mp3,opus` only include mp3 and opus files (default: all)
@@ -1015,6 +1097,28 @@ url parameters:
   * `n` = filename
   * `a` = filesize
   * uppercase = reverse-sort; `M` = oldest file first
+
+
+## opds feeds
+
+browse and download files from your e-book reader
+
+enabled with the `opds` volflag or `--opds` global option
+
+add `?opds` to the end of the url you would like to browse, then input that in your opds client.
+for example: `https://copyparty.example/books/?opds`.
+
+to log in with a password, enter it into either of the username or password fields in your client.
+
+- if you've enabled `--usernames`, then you need to enter both username and password .
+
+note: some clients (e.g. Moon+ Reader) will not send the password when downloading cover images, which will
+cause your ip to be banned by copyparty. to work around this, you can grant the [`g` permission](#accounts-and-volumes)
+to unauthenticated requests and enable [filekeys](#filekeys) to prevent guessing filenames. for example:
+`-vbooks:books:r,ed:g:c,fk,opds`
+
+by default, not all file types will be listed in opds feeds. to change this, add the extension to 
+`--opds-exts` (volflag: `opds_exts`), or empty the list to list everything
 
 
 ## recent uploads
@@ -1045,11 +1149,12 @@ plays almost every audio format there is  (if the server has FFmpeg installed fo
 
 the following audio formats are usually always playable, even without FFmpeg: `aac|flac|m4a|mp3|ogg|opus|wav`
 
-some hilights:
+some highlights:
 * OS integration; control playback from your phone's lockscreen ([windows](https://user-images.githubusercontent.com/241032/233213022-298a98ba-721a-4cf1-a3d4-f62634bc53d5.png) // [iOS](https://user-images.githubusercontent.com/241032/142711926-0700be6c-3e31-47b3-9928-53722221f722.png) // [android](https://user-images.githubusercontent.com/241032/233212311-a7368590-08c7-4f9f-a1af-48ccf3f36fad.png))
 * shows the audio waveform in the seekbar
 * not perfectly gapless but can get really close (see settings + eq below); good enough to enjoy gapless albums as intended
 * videos can be played as audio, without wasting bandwidth on the video
+* adding `?v` to the end of an audio/video/image link will make it open in the mediaplayer
 
 click the `play` link next to an audio file, or copy the link target to [share it](https://a.ocv.me/pub/demo/music/Ubiktune%20-%20SOUNDSHOCK%202%20-%20FM%20FUNK%20TERRROR!!/#af-1fbfba61&t=18) (optionally with a timestamp to start playing from, like that example does)
 
@@ -1076,12 +1181,15 @@ open the `[🎺]` media-player-settings tab to configure it,
   * `[flac]` converts `flac` and `wav` files into opus (if supported by browser) or mp3
   * `[aac]` converts `aac` and `m4a` files into opus (if supported by browser) or mp3
   * `[oth]` converts all other known formats into opus (if supported by browser) or mp3
-    * `aac|ac3|aif|aiff|alac|alaw|amr|ape|au|dfpwm|dts|flac|gsm|it|m4a|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|ogg|okt|opus|ra|s3m|tak|tta|ulaw|wav|wma|wv|xm|xpk`
+    * `aac|ac3|aif|aiff|alac|alaw|amr|ape|au|dfpwm|dts|flac|gsm|it|m4a|m4b|m4r|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|ogg|okt|opus|ra|s3m|tak|tta|ulaw|wav|wma|wv|xm|xpk`
 * "transcode to":
   * `[opus]` produces an `opus` whenever transcoding is necessary (the best choice on Android and PCs)
   * `[awo]` is `opus` in a `weba` file, good for iPhones (iOS 17.5 and newer) but Apple is still fixing some state-confusion bugs as of iOS 18.2.1
   * `[caf]` is `opus` in a `caf` file, good for iPhones (iOS 11 through 17), technically unsupported by Apple but works for the most part
   * `[mp3]` -- the myth, the legend, the undying master of mediocre sound quality that definitely works everywhere
+  * `[flac]` -- lossless but compressed, for LAN and/or fiber playback on electrostatic headphones
+  * `[wav]` -- lossless and uncompressed, for LAN and/or fiber playback on electrostatic headphones connected to very old equipment
+    * `flac` and `wav` must be enabled with `--allow-flac` / `--allow-wav` to allow spending the disk space
 * "tint" reduces the contrast of the playback bar
 
 
@@ -1184,7 +1292,7 @@ see [./srv/expand/](./srv/expand/) for usage and examples
 
   * and `PREADME.md` / `preadme.md` is shown above directory listings unless `--no-readme` or `.prologue.html`
 
-* `README.md` and `*logue.html` can contain placeholder values which are replaced server-side before embedding into directory listings; see `--help-exp`
+* `README.md` and `*logue.html` can contain placeholder values which are replaced server-side before embedding into directory listings; see [`--help-exp`](https://copyparty.eu/cli/#exp-help-page)
 
 
 ## searching
@@ -1214,10 +1322,62 @@ using arguments or config files, or a mix of both:
   * or click the `[reload cfg]` button in the control-panel if the user has `a`/admin in any volume
   * changes to the `[global]` config section requires a restart to take effect
 
-**NB:** as humongous as this readme is, there is also a lot of undocumented features. Run copyparty with `--help` to see all available global options; all of those can be used in the `[global]` section of config files, and everything listed in `--help-flags` can be used in volumes as volflags.
+**NB:** as humongous as this readme is, there is also a lot of undocumented features. Run copyparty with [`--help`](https://copyparty.eu/cli/) (or click that link) to see all available global options; all of those can be used in the `[global]` section of config files, and everything listed in [`--help-flags`](https://copyparty.eu/cli/#flags-help-page) can be used in volumes as volflags (per-volume configuration).
 * if running in docker/podman, try this: `docker run --rm -it copyparty/ac --help`
-* or see this (probably outdated): https://ocv.me/copyparty/helptext.html
-* or if you prefer plaintext, https://ocv.me/copyparty/helptext.txt
+* or if you prefer plaintext, https://copyparty.eu/helptext.txt
+
+
+## version-checker
+
+sleep better at night  by telling copyparty to periodically check whether your version has a [known vulnerability](https://github.com/9001/copyparty/security/advisories)
+
+this feature can be enabled by setting the global-option `--vc-url` to one of the following URLs; all of them provide the same information, so which one you choose is whatever
+* `https://api.copyparty.eu/advisories`
+* `https://api.github.com/repos/9001/copyparty/security-advisories?per_page=9`
+
+> to see what happens when a bad version is detected, try `--vc-url https://api.copyparty.eu/advisories-test`
+
+also consider the following options:
+* global-option `--vc-age` is how often (in hours) to check that URL; default is 3
+* global-option `--vc-exit` can be enabled to panic and immediately exit if a vulnerability is indicated
+  * if `--vc-exit` is not enabled, it just shows a warning on the controlpanel for all users with permission `a` or `A`
+
+config file example:
+
+```yaml
+[global]
+  vc-url: https://api.copyparty.eu/advisories
+  vc-age: 3  # how many hours to wait between each check
+  vc-exit    # emergency-exit if current version is vulnerable
+```
+
+
+## logging
+
+serverlog is sent to stdout by default  (but logging to a file is also possible)
+
+"stdout" usually means either the terminal, or journalctl, or whatever is collecting logs from your docker containers, so that depends on your setup
+
+* [-q](https://copyparty.eu/cli/#g-q) disables logging to stdout, and may improve performance a little bit
+  * combine it with `-lo logfolder/cpp-%Y-%m-%d.txt` to log to a file instead
+  * the `%Y-%m-%d` makes it create a new logfile every day, with the date as filename
+  * global-option [--rlo](https://copyparty.eu/cli/#rlo-help-page) decides what happens if the filename is taken
+* `-lo whatever.txt` can be used without `-q` to log to both at the same time
+  * by default, the logfile will have colors if the terminal does (usually the case)
+  * use the [textfile-viewer](https://github.com/user-attachments/assets/8a828947-2fae-4df9-bd2a-3de46f42d478) or `less -R` in a terminal to see colors correctly
+* if you want [no colors](https://youtu.be/biW5UVGkPMA?t=148):
+  * `--flo 2` disables colors for just the logfile
+  * `--no-ansi` disables colors for both the terminal and logfile
+
+config file example:
+
+```yaml
+[global]
+  log-date: %Y-%m-%d  # show dates on stdout too
+  lo: /var/log/cpp/%Y-%m-%d.txt  # logfile path
+  flo: 2  # just text (no colors) in logfile
+  q       # disable stdout; use logfile only
+```
 
 
 ## zeroconf
@@ -1273,6 +1433,12 @@ print a qr-code [(screenshot)](https://user-images.githubusercontent.com/241032/
 * `--qrl lootbox/?pw=hunter2` appends to the url, linking to the `lootbox` folder with password `hunter2`
 * `--qrz 1` forces 1x zoom instead of autoscaling to fit the terminal size
   * 1x may render incorrectly on some terminals/fonts, but 2x should always work
+* `--qr-pin 1` makes the qr-code stick to the bottom of the console (never scrolls away)
+* `--qr-file qr.txt:1:2` writes a small qr-code to `qr.txt`
+* `--qr-file qr.txt:2:2` writes a big qr-code to `qr.txt`
+* `--qr-file qr.svg:1:2` writes a vector-graphics qr-code to `qr.svg`
+* `--qr-file qr.png:8:4:333333:ffcc55` writes an 8x-magnified yellow-on-gray `qr.png`
+* `--qr-file qr.png:8:4::ffffff` writes an 8x-magnified white-on-transparent `qr.png`
 
 it uses the server hostname if [mdns](#mdns) is enabled, otherwise it'll use your external ip (default route) unless `--qri` specifies a specific ip-prefix or domain
 
@@ -1288,6 +1454,7 @@ an FTP server can be started using `--ftp 3921`,  and/or `--ftps` for explicit T
   * if you enable both `ftp` and `ftps`, the port-range will be divided in half
   * some older software (filezilla on debian-stable) cannot passive-mode with TLS
 * login with any username + your password, or put your password in the username field
+  * unless you enabled `--usernames`
 
 some recommended FTP / FTPS clients; `wark` = example password:
 * https://winscp.net/eng/download.php
@@ -1295,6 +1462,36 @@ some recommended FTP / FTPS clients; `wark` = example password:
 * https://rclone.org/ does FTPS with `tls=false explicit_tls=true`
 * `lftp -u k,wark -p 3921 127.0.0.1 -e ls`
 * `lftp -u k,wark -p 3990 127.0.0.1 -e 'set ssl:verify-certificate no; ls'`
+* `curl ftp://127.0.0.1:3921/` (plaintext ftp)
+* `curl --ssl-reqd ftp://127.0.0.1:3990/` (encrypted ftps)
+
+config file example, which restricts FTP to only use ports 3921 and 12000-12099 so all of those ports must be opened in your firewall:
+
+```yaml
+[global]
+  ftp: 3921
+  ftp-pr: 12000-12099
+```
+
+
+## sftp server
+
+goes roughly 700 MiB/s (slower than webdav and ftp)
+
+> this is **not** [ftps](#ftp-server) (which copyparty also supports); [ftps](#ftp-server) is ftp-tls (think http/https), while **sftp** is ssh-based and (preferably) uses ssh-keys for authentication
+
+the sftp-server requires the optional dependency [paramiko](https://pypi.org/project/paramiko/);
+* if you are **not** using docker, then install paramiko somehow
+* if you **are** using docker, then use one of the following image variants: `ac` / `im` / `iv` / `dj`
+
+enable sftpd with `--sftp 3922` to listen on port 3922;
+* use global-option `sftp-key` to associate an ssh-key with a user;
+  * commandline: `--sftp-key 'david ssh-ed25519 AAAAC3NzaC...'`
+  * config-file: `sftp-key: david ssh-ed25519 AAAAC3NzaC...`
+* `--sftp-pw` enables login with passwords (default is ssh-keys only)
+* `--sftp-anon foo` enables login with username `foo` and no password; gives the same access/permissions as the website does when not logged in
+
+see the [sftp section in --help](https://copyparty.eu/cli/#g-sftp) for the other options
 
 
 ## webdav server
@@ -1305,11 +1502,12 @@ click the [connect](http://127.0.0.1:3923/?hc) button in the control-panel to se
 
 general usage:
 * login with any username + your password, or put your password in the username field (password field can be empty/whatever)
+  * unless you enabled `--usernames`
 
 on macos, connect from finder:
 * [Go] -> [Connect to Server...] -> http://192.168.123.1:3923/
 
-in order to grant full write-access to webdav clients, the volflag `daw` must be set and the account must also have delete-access (otherwise the client won't be allowed to replace the contents of existing files, which is how webdav works)
+to be able to edit existing files, the client must have the Delete-permission, and some webdav clients will also require the [daw](https://copyparty.eu/cli/#g-daw) volflag or global-option (not necessary if the client sends the `x-oc-mtime` header). Without `daw`, those clients will fail to modify existing files and instead create new copies with names like `notes.txt-1771978661.726032-3i9GPghL.txt`. **NOTE:** Enabling `daw` will also make all PUT-uploads overwrite existing files if the user has delete-access, so use with caution. Another alternative is the [dav-port](https://copyparty.eu/cli/#g-dav-port) option
 
 > note: if you have enabled [IdP authentication](#identity-providers) then that may cause issues for some/most webdav clients; see [the webdav section in the IdP docs](https://github.com/9001/copyparty/blob/hovudstraum/docs/idp.md#connecting-webdav-clients)
 
@@ -1320,6 +1518,7 @@ using the GUI  (winXP or later):
 * rightclick [my computer] -> [map network drive] -> Folder: `http://192.168.123.1:3923/`
   * on winXP only, click the `Sign up for online storage` hyperlink instead and put the URL there
   * providing your password as the username is recommended; the password field can be anything or empty
+    * unless you enabled `--usernames`
 
 the webdav client that's built into windows has the following list of bugs; you can avoid all of these by connecting with rclone instead:
 * win7+ doesn't actually send the password to the server when reauthenticating after a reboot unless you first try to login with an incorrect password and then switch to the correct password
@@ -1369,7 +1568,7 @@ unsafe, slow, not recommended for wan,  enable with `--smb` for read-only or `--
 
 click the [connect](http://127.0.0.1:3923/?hc) button in the control-panel to see connection instructions for windows, linux, macos
 
-dependencies: `python3 -m pip install --user -U impacket==0.11.0`
+dependencies: `python3 -m pip install --user -U impacket==0.13.0`
 * newer versions of impacket will hopefully work just fine but there is monkeypatching so maybe not
 
 some **BIG WARNINGS** specific to SMB/CIFS, in decreasing importance:
@@ -1377,6 +1576,7 @@ some **BIG WARNINGS** specific to SMB/CIFS, in decreasing importance:
 * the smb backend is not fully integrated with vfs, meaning there could be security issues (path traversal). Please use `--smb-port` (see below) and [prisonparty](./bin/prisonparty.sh) or [bubbleparty](./bin/bubbleparty.sh)
   * account passwords work per-volume as expected, and so does account permissions (read/write/move/delete), but `--smbw` must be given to allow write-access from smb
   * [shadowing](#shadowing) probably works as expected but no guarantees
+* not compatible with pw-hashing or `--usernames`
 
 and some minor issues,
 * clients only see the first ~400 files in big folders;
@@ -1387,6 +1587,7 @@ and some minor issues,
   * win10 onwards does not allow connecting anonymously / without accounts
 * python3 only
 * slow (the builtin webdav support in windows is 5x faster, and rclone-webdav is 30x faster)
+  * those numbers are specifically for copyparty's smb-server (because it sucks); other smb-servers should be similar to webdav
 
 known client bugs:
 * on win7 only, `--smb1` is much faster than smb2 (default) because it keeps rescanning folders on smb2
@@ -1410,7 +1611,12 @@ tweaking the ui
   * to sort in music order (album, track, artist, title) with filename as fallback, you could `--sort tags/Circle,tags/.tn,tags/Artist,tags/Title,href`
   * to sort by upload date, first enable showing the upload date in the listing with `-e2d -mte +.up_at` and then `--sort tags/.up_at`
 
-see [./docs/rice](./docs/rice) for more, including how to add stuff (css/`<meta>`/...) to the html `<head>` tag, or to add your own translation
+see [./docs/rice](./docs/rice) for more, including:
+* how to [hide ui-elements](./docs/rice/README.md#hide-ui-elements)
+* [custom fonts](./docs/rice/README.md#custom-fonts)
+* [custom loading-spinner](./docs/rice/README.md#boring-loader-spinner)
+* adding stuff (css/`<meta>`/...) [to the html `<head>` tag](./docs/rice/README.md#head)
+* [adding your own translation](./docs/rice/README.md#translations)
 
 
 ## opengraph
@@ -1422,6 +1628,8 @@ can be enabled globally with `--og` or per-volume with volflag `og`
 note that this disables hotlinking because the opengraph spec demands it; to sneak past this intentional limitation, you can enable opengraph selectively by user-agent, for example `--og-ua '(Discord|Twitter|Slack)bot'` (or volflag `og_ua`)
 
 you can also hotlink files regardless by appending `?raw` to the url
+
+> WARNING: if you plan to use WebDAV, then `--og-ua` / `og_ua` must be configured
 
 if you want to entirely replace the copyparty response with your own jinja2 template, give the template filepath to `--og-tpl` or volflag `og_tpl` (all members of `HttpCli` are available through the `this` object)
 
@@ -1505,6 +1713,7 @@ the same arguments can be set as volflags, in addition to `d2d`, `d2ds`, `d2t`, 
 
 note:
 * upload-times can be displayed in the file listing by enabling the `.up_at` metadata key, either globally with `-e2d -mte +.up_at` or per-volume with volflags `e2d,mte=+.up_at` (will have a ~17% performance impact on directory listings)
+  * and file checksums can be shown with global-option `-e2d -mte +w` or volflag `e2d,mte=+w` (always active for users with permission `a`)
 * `e2tsr` is probably always overkill, since `e2ds`/`e2dsa` would pick up any file modifications and `e2ts` would then reindex those, unless there is a new copyparty version with new parsers and the release note says otherwise
 
 config file example (these options are recommended btw):
@@ -1588,12 +1797,13 @@ set upload rules using volflags,  some examples:
 * `:c,nosub` disallow uploading into subdirectories; goes well with `rotn` and `rotf`:
 * `:c,rotn=1000,2` moves uploads into subfolders, up to 1000 files in each folder before making a new one, two levels deep (must be at least 1)
 * `:c,rotf=%Y/%m/%d/%H` enforces files to be uploaded into a structure of subfolders according to that date format
+  * `:c,rotf_tz=Europe/Oslo` sets the timezone (default is UTC unless global-option `rotf-tz` is changed)
   * if someone uploads to `/foo/bar` the path would be rewritten to `/foo/bar/2021/08/06/23` for example
   * but the actual value is not verified, just the structure, so the uploader can choose any values which conform to the format string
     * just to avoid additional complexity in up2k which is enough of a mess already
 * `:c,lifetime=300` delete uploaded files when they become 5 minutes old
 
-you can also set transaction limits which apply per-IP and per-volume, but these assume `-j 1` (default) otherwise the limits will be off, for example `-j 4` would allow anywhere between 1x and 4x the limits you set depending on which processing node the client gets routed to
+you can also set transaction limits which apply per-IP and per-volume, but these assume `-j 1` (default) otherwise the limits will be messed up, for example `-j 4` would allow anywhere between 1x and 4x the limits you set depending on which processing node the client gets routed to
 
 * `:c,maxn=250,3600` allows 250 files over 1 hour from each IP (tracked per-volume)
 * `:c,maxb=1g,300` allows 1 GiB total over 5 minutes from each IP (tracked per-volume)
@@ -1649,11 +1859,82 @@ some examples,
   allows (but does not force) gz compression if client uploads to `/inc?pk` or `/inc?gz` or `/inc?gz=4`
 
 
+## chmod and chown
+
+per-volume filesystem-permissions and ownership
+
+by default:
+* all folders are chmod 755
+* files are usually chmod 644 (umask-defined)
+* user/group is whatever copyparty is running as
+
+this can be configured per-volume:
+* volflag `chmod_f` sets file permissions; default=`644` (usually)
+* volflag `chmod_d` sets directory permissions; default=`755`
+* volflag `uid` sets the owner user-id
+* volflag `gid` sets the owner group-id
+
+notes:
+* `gid` can only be set to one of the groups which the copyparty process is a member of
+* `uid` can only be set if copyparty is running as root (i appreciate your faith)
+
+
 ## other flags
 
 * `:c,magic` enables filetype detection for nameless uploads, same as `--magic`
   * needs https://pypi.org/project/python-magic/ `python3 -m pip install --user -U python-magic`
   * on windows grab this instead `python3 -m pip install --user -U python-magic-bin`
+* `cachectl` changes how webbrowser will cache responses (the `Cache-Control` response-header); default is `no-cache` which will prevent repeated downloading of the same file unless necessary (browser will ask copyparty if the file has changed)
+  * adding `?cache` to a link will override this with "fully cache this for 69 seconds"; `?cache=321` is 321 seconds, and `?cache=i` is 7 days
+
+
+## descript.ion
+
+add a description to each file in a folder  by adding them to a textfile named `descript.ion`
+
+see https://copyparty.eu/beta/ for an example -- here's a basic `descript.ion` file:
+
+```
+bookmark.mp3 Taishi feat. Rita - Bookmark Memories
+slowstep.mp3 Taishi feat. 向日葵 - Slow Step -F.L.C.A-
+prsnlzr.mp3 Taishi feat. みとせのりこ - Personalizer
+cosmos.mp3 Taishi feat. Rita - Into the cosmos
+```
+
+
+## dothidden
+
+cosmetically hide specific files in a folder  by adding them to a textfile named `.hidden`
+
+this option is default-disabled; enable the volflag and/or global-option `dothidden`
+
+this is **cosmetic only!** the files are still easily accessible in many ways, for example with download-as-zip/tar, so **do not** rely on this for security.
+
+> also see the [--unlist](https://copyparty.eu/cli/#g-unlist) option which is somewhat similar -- `unlist` applies to the whole volume instead of just one folder; however, while dothidden also affects sftp and ftp, the `unlist` option is http/https-only
+
+
+## thumbnail pregen
+
+if you want to pre-generate everything on startup  (usually a bad idea);
+
+by default, thumbnails are created on-the-fly when a client needs it, and then cached on the server for [--th-maxage](https://copyparty.eu/cli/#g-th-maxage) seconds (default is one week), so most thumbnails only need to be created once, and are then eventually deleted from the cache to preserver disk space
+
+but if you need every thumbnail instantly available when a folder is viewed, then first increase the thumbnail expiration time to something really big, and then set global-option `th-pregen` and volflag `th_pregen` to a comma-separated list of thumbnail formats to automatically generate on server startup;
+
+the full list of all possible formats is: `j,jf,jf3,j3,w,wf,wf3,w3,x,xf,xf3,x3,opus,mp3,flac,wav` and I'll explain what those mean soon
+
+* `j` = jpeg cropped, `jf` = jpeg uncropped, `jf3` = jpeg uncropped triplesize, `j3` jpeg cropped triplesize
+* `w` = webm cropped, `wf` = webm uncropped, ..., `x` = jxl cropped, `xf` = jxl uncropped, ...
+* and yes, audio-transcodes are technically thumbnails according to copyparty -- don't think too much about it ( ﾟ ヮﾟ)
+  * unlike thumbnails, the expiry time for audio-transcodes is configured with [--ac-maxage](https://copyparty.eu/cli/#g-ac-maxage)
+
+anyways, obviously you **do not** want to pregenerate flac/wav because they're HUGE, and everything else also gets pretty big because it all adds up;
+
+* each regular thumbnail ( j, jf, w, wf, x, xf ) takes about 16 KiB of disk space
+* each triplesize thumb ( j3, jf3, w3, wf3, x3, xf3 ) takes about 96 KiB
+* each opus / mp3 audiotranscode takes... idk, 6 MiB? depends on song length
+
+so a thousand pictures converted to every possible regular-size image format (`j,jf,w,wf,x,xf`) takes **96 MiB,** and every possible 3x-size (`jf3,j3,wf3,w3,xf3,x3`) takes **562 MiB,** alternatively **658 MiB** in total for all, so that's why the default is to *not* pregenerate on startup, but instead do on-demand with a cache
 
 
 ## database location
@@ -1718,6 +1999,23 @@ see the beautiful mess of a dictionary in [mtag.py](https://github.com/9001/copy
 `--mtag-to` sets the tag-scan timeout; very high default (60 sec) to cater for zfs and other randomly-freezing filesystems. Lower values like 10 are usually safe, allowing for faster processing of tricky files
 
 
+### metadata from xattrs
+
+unix extended file attributes  (Linux-only) can be indexed into the db and made searchable;
+
+* `--db-xattr user.foo,user.bar` will index the xattrs `user.foo` and `user.bar`,
+* `--db-xattr user.foo=foo,user.bar=bar` will index them with the names `foo` and `bar`,
+* `--db-xattr ~~user.foo,user.bar` will index everything *except* `user.foo` and `user.bar`,
+* `--db-xattr ~~` will index everything
+
+however note that the tags must also be enabled with `-mte` so here are some complete examples:
+* `-e2ts --db-xattr user.foo,user.bar -mte +user.foo,user.bar`
+* `-e2ts --db-xattr user.foo=foo,user.bar=bar -mte +foo,bar`
+
+as for actually adding the xattr `user.foo` to a file in the first place,
+* `setfattr -n user.foo -v 'utsikt fra fløytoppen' photo.jpg`
+
+
 ## file parser plugins
 
 provide custom parsers to index additional tags,  also see [./bin/mtag/README.md](./bin/mtag/README.md)
@@ -1760,7 +2058,7 @@ trigger a program on uploads, renames etc ([examples](./bin/hooks/))
 
 you can set hooks before and/or after an event happens, and currently you can hook uploads, moves/renames, and deletes
 
-there's a bunch of flags and stuff, see `--help-hooks`
+there's a bunch of flags and stuff, see [`--help-hooks`](https://copyparty.eu/cli/#hooks-help-page)
 
 if you want to write your own hooks, see [devnotes](./docs/devnotes.md#event-hooks)
 
@@ -1851,6 +2149,20 @@ repeat the option to map additional subnets
 **be careful with this one!** if you have a reverseproxy, then you definitely want to make sure you have [real-ip](#real-ip) configured correctly, and it's probably a good idea to nullmap the reverseproxy's IP just in case; so if your reverseproxy is sending requests from `172.24.27.9` then that would be `--ipu=172.24.27.9/32=`
 
 
+### restrict to ip
+
+limit a user to certain IP ranges (CIDR)  , using the global-option `--ipr`
+
+for example, if the user `spartacus` should get rejected if they're not connecting from an IP that starts with `192.168.123` or `172.16`, then you can either specify `--ipr=192.168.123.0/24,172.16.0.0/16=spartacus` as a commandline option, or put this in a config file:
+
+```yaml
+[global]
+  ipr: 192.168.123.0/24,172.16.0.0/16=spartacus
+```
+
+repeat the option to map additional users
+
+
 ## identity providers
 
 replace copyparty passwords with oauth and such
@@ -1859,6 +2171,12 @@ you can disable the built-in password-based login system, and instead replace it
 
 * the regular config-defined users will be used as a fallback for requests which don't include a valid (trusted) IdP username header
 
+  * `--auth-ord` configured auth precedence, for example to allow overriding the IdP with a copyparty password
+
+* the login/logout links/buttons can be replaced with links to your IdP with `--idp-login` and `--idp-logout` , for example `--idp-login /idp/login/?redir={dst}` will expand `{dst}` to the page the user was on when clicking Login
+
+* if your IdP-server is slow, consider `--idp-cookie` and let requests with the cookie `cppws` bypass the IdP; experimental sessions-based feature added for a party
+
 some popular identity providers are [Authelia](https://www.authelia.com/) (config-file based) and [authentik](https://goauthentik.io/) (GUI-based, more complex)
 
 there is a [docker-compose example](./docs/examples/docker/idp-authelia-traefik) which is hopefully a good starting point (alternatively see [./docs/idp.md](./docs/idp.md) if you're the DIY type)
@@ -1866,6 +2184,20 @@ there is a [docker-compose example](./docs/examples/docker/idp-authelia-traefik)
 a more complete example of the copyparty configuration options [look like this](./docs/examples/docker/idp/copyparty.conf)
 
 but if you just want to let users change their own passwords, then you probably want [user-changeable passwords](#user-changeable-passwords) instead
+
+
+### generic header auth
+
+other ways to auth by header
+
+if you have a middleware which adds a header with a user identifier, for example tailscale's `Tailscale-User-Login: alice.m@forest.net` then you can automatically auth as `alice` by defining that mapping with `--idp-hm-usr '^Tailscale-User-Login^alice.m@forest.net^alice'` or the following config file:
+
+```yaml
+[global]
+  idp-hm-usr: ^Tailscale-User-Login^alice.m@forest.net^alice
+```
+
+repeat the whole `idp-hm-usr` option to add more mappings
 
 
 ## user-changeable passwords
@@ -2021,7 +2353,11 @@ you can either:
 * or do location-based proxying, using `--rp-loc=/stuff` to tell copyparty where it is mounted -- has a slight performance cost and higher chance of bugs
   * if copyparty says `incorrect --rp-loc or webserver config; expected vpath starting with [...]` it's likely because the webserver is stripping away the proxy location from the request URLs -- see the `ProxyPass` in the apache example below
 
-when running behind a reverse-proxy (this includes services like cloudflare), it is important to configure real-ip correctly, as many features rely on knowing the client's IP. Look out for red and yellow log messages which explain how to do this. But basically, set `--xff-hdr` to the name of the http header to read the IP from (usually `x-forwarded-for`, but cloudflare uses `cf-connecting-ip`), and then `--xff-src` to the IP of the reverse-proxy so copyparty will trust the xff-hdr. Note that `--rp-loc` in particular will not work at all unless you do this
+when running behind a reverse-proxy (this includes services like cloudflare), it is important to configure real-ip correctly, as many features rely on knowing the client's IP. The best/safest approach is to configure your reverse-proxy so it gives copyparty a header which only contains the client's true/real IP-address, and then setting `--xff-hdr theHeaderName --rproxy 1` but alternatively, if you want/need to let copyparty handle this, look out for red and yellow log messages which explain how to do that. Basically, the log will say this:
+
+> set `--xff-hdr` to the name of the http-header to read the IP from (usually `x-forwarded-for`, but cloudflare uses `cf-connecting-ip`), and then `--xff-src` to the IP of the reverse-proxy so copyparty will trust the xff-hdr. You will also need to configure `--rproxy` to `1` if the header only contains one IP (the correct one) or to a *negative value* if it contains multiple; `-1` being the rightmost and most trusted IP (the nearest proxy, so usually not the correct one), `-2` being the second-closest hop, and so on
+
+Note that `--rp-loc` in particular will not work at all unless you configure the above correctly
 
 some reverse proxies (such as [Caddy](https://caddyserver.com/)) can automatically obtain a valid https/tls certificate for you, and some support HTTP/2 and QUIC which *could* be a nice speed boost, depending on a lot of factors
 * **warning:** nginx-QUIC (HTTP/3) is still experimental and can make uploads much slower, so HTTP/1.1 is recommended for now
@@ -2038,7 +2374,7 @@ example webserver / reverse-proxy configs:
 * [lighttpd subdomain](contrib/lighttpd/subdomain.conf) -- entire domain/subdomain
 * [lighttpd subpath](contrib/lighttpd/subpath.conf) -- location-based (not optimal, but in case you need it)
 * [nginx config](contrib/nginx/copyparty.conf) -- recommended
-* [traefik config](contrib/traefik/copyparty.yaml)
+* [traefik config](contrib/traefik/copyparty.yaml) -- only use v3.6.7 or newer [due to CVE-2025-66490](https://github.com/9001/copyparty/issues/1205)
 
 
 ### real-ip
@@ -2079,7 +2415,7 @@ when connecting the reverse-proxy to `127.0.0.1` instead (the basic and/or old-f
 
 in summary, `haproxy > caddy > traefik > nginx > apache > lighttpd`, and use uds when possible (traefik does not support it yet)
 
-* if these results are bullshit because my config exampels are bad, please submit corrections!
+* if these results are bullshit because my config examples are bad, please submit corrections!
 
 
 ## permanent cloudflare tunnel
@@ -2206,7 +2542,9 @@ buggy feature? rip it out  by setting any of the following environment variables
 
 | env-var              | what it does |
 | -------------------- | ------------ |
+| `PRTY_NO_CTYPES`     | do not use features from external libraries such as kernel32 |
 | `PRTY_NO_DB_LOCK`    | do not lock session/shares-databases for exclusive access |
+| `PRTY_NO_ENVEXPAND`  | do not expand environment-variables in configs and args |
 | `PRTY_NO_IFADDR`     | disable ip/nic discovery by poking into your OS with ctypes |
 | `PRTY_NO_IMPRESO`    | do not try to load js/css files using `importlib.resources` |
 | `PRTY_NO_IPV6`       | disable some ipv6 support (should not be necessary since windows 2000) |
@@ -2215,6 +2553,7 @@ buggy feature? rip it out  by setting any of the following environment variables
 | `PRTY_NO_SQLITE`     | disable all database-related functionality (file indexing, metadata indexing, most file deduplication logic) |
 | `PRTY_NO_TLS`        | disable native HTTPS support; if you still want to accept HTTPS connections then TLS must now be terminated by a reverse-proxy |
 | `PRTY_NO_TPOKE`      | disable systemd-tmpfilesd avoider |
+| `PRTY_UNSAFE_STATE`  | allow storing secrets into emergency-fallback locations |
 
 example: `PRTY_NO_IFADDR=1 python3 copyparty-sfx.py`
 
@@ -2226,6 +2565,7 @@ force-enable features with known issues on your OS/env  by setting any of the fo
 | env-var                  | what it does |
 | ------------------------ | ------------ |
 | `PRTY_FORCE_MP`          | force-enable multiprocessing (real multithreading) on MacOS and other broken platforms |
+| `PRTY_FORCE_MAGIC`       | use [magic](https://pypi.org/project/python-magic/) on Windows (you will segfault) |
 
 
 # packages
@@ -2239,16 +2579,42 @@ if your distro/OS is not mentioned below, there might be some hints in the [«on
 
 `pacman -S copyparty` (in [arch linux extra](https://archlinux.org/packages/extra/any/copyparty/))
 
-it comes with a [systemd service](./contrib/package/arch/copyparty.service) and expects to find one or more [config files](./docs/example.conf) in `/etc/copyparty.d/`
+it comes with a [systemd service](./contrib/systemd/copyparty@.service) as well as a [user service](./contrib/systemd/copyparty-user.service), and expects to find a [config file](./contrib/systemd/copyparty.example.conf) in `/etc/copyparty/copyparty.conf` or `~/.config/copyparty/copyparty.conf`
 
-after installing it, you may want to `cp /usr/lib/systemd/system/copyparty.service /etc/systemd/system/` and then `vim /etc/systemd/system/copyparty.service` to change what user/group it is running as (you only need to do this once)
+after installing, start either the system service or the user service and navigate to http://127.0.0.1:3923 for further instructions (unless you already edited the config files, in which case you are good to go, probably)
 
-NOTE: there used to be an aur package; this evaporated when copyparty was adopted by the official archlinux repos. If you're still using the aur package, please move
+> to start the systemd service, either do `systemctl start --user copyparty` to start it as your own user, or `systemctl start copyparty@bob` to use unix-user `bob`
 
 
 ## fedora package
 
 does not exist yet;  there are rumours that it is being packaged! keep an eye on this space...
+
+
+## gentoo ::guru package
+
+`emerge www-servers/copyparty::guru` (in [::guru](https://wiki.gentoo.org/wiki/Project:GURU))
+
+but first enable the `::guru` repo;
+
+```bash
+emerge -an app-eselect/eselect-repository
+eselect repository enable guru
+emerge --sync guru
+```
+
+to start the service as a user:
+* OpenRC: `rc-service -U copyparty start && rc-update -U add copyparty default`
+* systemd: [todo]
+
+
+## homebrew formulae
+
+`brew install copyparty ffmpeg`  -- https://formulae.brew.sh/formula/copyparty
+
+should work on all macs (both intel and apple silicon) and all relevant macos versions
+
+the homebrew package is maintained by the homebrew team (thanks!)
 
 
 ## nix package
@@ -2264,7 +2630,7 @@ some recommended dependencies are enabled by default; [override the package](htt
 
 ## nixos module
 
-for this setup, you will need a [flake-enabled](https://nixos.wiki/wiki/Flakes) installation of NixOS.
+for [flake-enabled](https://nixos.wiki/wiki/Flakes) installations of NixOS:
 
 ```nix
 {
@@ -2291,10 +2657,41 @@ for this setup, you will need a [flake-enabled](https://nixos.wiki/wiki/Flakes) 
 }
 ```
 
+if you don't use a flake in your configuration, you can use other dependency management tools like [npins](https://github.com/andir/npins), [niv](https://github.com/nmattia/niv), or even plain [`fetchTarball`](https://nix.dev/manual/nix/stable/language/builtins#builtins-fetchTarball), like so:
+
+```nix
+{ pkgs, ... }:
+
+let
+  # npins example, adjust for your setup. copyparty should be a path to the downloaded repo
+  # for niv, just replace the npins folder import with the sources.nix file
+  copyparty = (import ./npins).copyparty;
+
+  # or with fetchTarball:
+  copyparty = fetchTarball "https://github.com/9001/copyparty/archive/hovudstraum.tar.gz";
+in
+
+{
+  # load the copyparty NixOS module
+  imports = [ "${copyparty}/contrib/nixos/modules/copyparty.nix" ];
+
+  # add the copyparty overlay to expose the package to the module
+  nixpkgs.overlays = [ (import "${copyparty}/contrib/package/nix/overlay.nix") ];
+  # (optional) install the package globally
+  environment.systemPackages = [ pkgs.copyparty ];
+  # configure the copyparty module
+  services.copyparty.enable = true;
+}
+```
+
 copyparty on NixOS is configured via `services.copyparty` options, for example:
 ```nix
 services.copyparty = {
   enable = true;
+  # the user to run the service as
+  user = "copyparty"; 
+  # the group to run the service as
+  group = "copyparty"; 
   # directly maps to values in the [global] section of the copyparty config.
   # see `copyparty --help` for available options
   settings = {
@@ -2317,6 +2714,12 @@ services.copyparty = {
     };
     # or do both in one go
     k.passwordFile = "/run/keys/copyparty/k_password";
+  };
+
+  # create a group
+  groups = {
+    # users "ed" and "k" are part of the group g1
+    g1 = [ "ed" "k" ];
   };
 
   # create a volume
@@ -2349,6 +2752,12 @@ services.copyparty = {
   };
   # you may increase the open file limit for the process
   openFilesLimit = 8192;
+  
+  # override the package used by the module to add dependencies, e.g. for hooks
+  package = pkgs.copyparty.override {
+    # provides exiftool for bin/hooks/image-noexif.py
+    extraPackages = [ pkgs.exiftool ];
+  };
 };
 ```
 
@@ -2406,8 +2815,20 @@ quick summary of more eccentric web-browsers trying to view a directory index:
 | **SerenityOS** (7e98457)  | hits a page fault, works with `?b=u`, file upload not-impl |
 | **sony psp** 5.50         | can browse, upload/mkdir/msg (thx dwarf) [screenshot](https://github.com/user-attachments/assets/9d21f020-1110-4652-abeb-6fc09c533d4f) |
 | **nintendo 3ds**          | can browse, upload, view thumbnails (thx bnjmn) |
+| **Nintendo Wii (Opera 9.0 "Internet Channel")**          | can browse, can't upload or download (no local storage), can view images - works best with `?b=u`, default view broken |
 
 <p align="center"><img src="https://github.com/user-attachments/assets/88deab3d-6cad-4017-8841-2f041472b853" /></p>
+
+
+# server hall of fame
+
+unexpected things that run copyparty:
+
+* an old [allwinner](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/aallwinner.jpg) android tv-box (ziptie-strapped to an HDD) running a firmware which flips the CPU into Big-Endian mode early during boot
+  * copyparty is [certified BE ready](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/be-ready.png) -- thanks, [Øl Telecom](http://ol-tele.com/)!
+* an [SGI O2 (photo)](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/sgi-o2.jpg?cache) with a grand total of 64 MiB RAM running SGI IRIX; [screenshot](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/sgi-o2.png?cache)
+  * thanks again to the wonderful people at [Øl Telecom](http://ol-tele.com/)
+* a [wristwatch](https://a.ocv.me/pub/g/nerd-stuff/cpp/servers/clockyparty.jpg)
 
 
 # client examples
@@ -2429,6 +2850,10 @@ interact with copyparty using non-browser clients
     `post movie.mkv`
   * `chunk(){ curl -H pw:wark -T- http://127.0.0.1:3923/;}`  
     `chunk <movie.mkv`
+
+* curl: append to existing file with `?apnd`
+  * `log(){ curl -H pw:wark -T- http://127.0.0.1:3923/logfile.txt?apnd;}`  
+    `echo hey | log`
 
 * bash: when curl and wget is not available or too boring
   * `(printf 'PUT /junk?pw=wark HTTP/1.1\r\n\r\n'; cat movie.mkv) | nc 127.0.0.1 3923`
@@ -2465,6 +2890,8 @@ you can provide passwords using header `PW: hunter2`, cookie `cppwd=hunter2`, ur
 
 > for basic-authentication, all of the following are accepted: `password` / `whatever:password` / `password:whatever` (the username is ignored)
 
+* unless you've enabled `--usernames`, then it's `PW: usr:pwd`, cookie `cppwd=usr:pwd`, url-param `?pw=usr:pwd`
+
 NOTE: curl will not send the original filename if you use `-T` combined with url-params! Also, make sure to always leave a trailing slash in URLs unless you want to override the filename
 
 
@@ -2474,11 +2901,20 @@ sync folders to/from copyparty
 
 NOTE: full bidirectional sync, like what [nextcloud](https://docs.nextcloud.com/server/latest/user_manual/sv/files/desktop_mobile_sync.html) and [syncthing](https://syncthing.net/) does, will never be supported! Only single-direction sync (server-to-client, or client-to-server) is possible with copyparty
 
+* if you want bidirectional sync, then copyparty and syncthing *should* be entirely safe to combine; they should be able to collaborate on the same folders without causing any trouble for eachother. Many people do this, and there have been no issues so far. But, if you *do* encounter any problems, please [file a copyparty bug](https://github.com/9001/copyparty/issues/new/choose) and I'll try to help -- just keep in mind I've never used syncthing before :-)
+
 the commandline uploader [u2c.py](https://github.com/9001/copyparty/tree/hovudstraum/bin#u2cpy) with `--dr` is the best way to sync a folder to copyparty; verifies checksums and does files in parallel, and deletes unexpected files on the server after upload has finished which makes file-renames really cheap (it'll rename serverside and skip uploading)
+
+if you want to sync with `u2c.py` then:
+* the `e2dsa` option (either globally or volflag) must be enabled on the server for the volumes you're syncing into
+* ...but DON'T enable global-options `no-hash` or `no-idx` (or volflags `nohash` / `noidx`), or at least make sure they are configured so they do not affect anything you are syncing into
+* ...and u2c needs the delete-permission, so either `rwd` at minimum, or just `A` which is the same as `rwmd.a`
+  * quick reminder that `a` and `A` are different permissions, and `.` is very useful for sync
 
 alternatively there is [rclone](./docs/rclone.md) which allows for bidirectional sync and is *way* more flexible (stream files straight from sftp/s3/gcs to copyparty, ...), although there is no integrity check and it won't work with files over 100 MiB if copyparty is behind cloudflare
 
 * starting from rclone v1.63, rclone is faster than u2c.py on low-latency connections
+  * but this is only true for the initial upload; u2c will be faster for periodic syncing
 
 
 ## mount as drive
@@ -2520,6 +2956,8 @@ there is no iPhone app, but  the following shortcuts are almost as good:
   * can download links and rehost the target file on copyparty (see first comment inside the shortcut)
   * pics become lowres if you share from gallery to shortcut, so better to launch the shortcut and pick stuff from there
 
+if you want to run the copyparty server on your iPhone or iPad, see [install on iOS](#install-on-iOS)
+
 
 # performance
 
@@ -2539,14 +2977,18 @@ below are some tweaks roughly ordered by usefulness:
 * `--no-htp --hash-mt=0 --mtag-mt=1 --th-mt=1` minimizes the number of threads; can help in some eccentric environments (like the vscode debugger)
 * when running on AlpineLinux or other musl-based distro, try mimalloc for higher performance (and twice as much RAM usage); `apk add mimalloc2` and run copyparty with env-var `LD_PRELOAD=/usr/lib/libmimalloc-secure.so.2`
   * note that mimalloc requires special care when combined with prisonparty and/or bubbleparty/bubblewrap; you must give it access to `/proc` and `/sys` otherwise you'll encounter issues with FFmpeg (audio transcoding, thumbnails)
-* `-j0` enables multiprocessing (actual multithreading), can reduce latency to `20+80/numCores` percent and generally improve performance in cpu-intensive workloads, for example:
+* `-j0` (usually *not* recommended) enables multiprocessing (actual multithreading), can reduce latency to `20+80/numCores` percent and generally improve performance in cpu-intensive workloads, for example:
   * lots of connections (many users or heavy clients)
   * simultaneous downloads and uploads saturating a 20gbps connection
   * if `-e2d` is enabled, `-j2` gives 4x performance for directory listings; `-j4` gives 16x
   
-  ...however it also increases the server/filesystem/HDD load during uploads, and adds an overhead to internal communication, so it is usually a better idea to don't
+  ...however it will probably *reduce* performance in most cases, since it also increases the server/filesystem/HDD load during uploads, and adds an overhead to internal communication, so keeping the default is generally best
 * using [pypy](https://www.pypy.org/) instead of [cpython](https://www.python.org/) *can* be 70% faster for some workloads, but slower for many others
   * and pypy can sometimes crash on startup with `-j0` (TODO make issue)
+
+* if you are running the copyparty server **on Windows or Macos:**
+  * `--casechk=n` makes it much faster, but also awakens [the usual surprises](https://github.com/9001/copyparty/issues/781) you expect from a case-insensitive filesystem
+    * this is the same as `casechk: n` in a config-file
 
 
 ## client-side
@@ -2572,15 +3014,17 @@ when uploading files,
 
 # security
 
-there is a [discord server](https://discord.gg/25J8CdTT6G)  with an `@everyone` for all important updates (at the lack of better ideas)
+there is a [discord server](https://discord.gg/25J8CdTT6G) with announcements  ; an `@everyone` for all important updates (at the lack of better ideas)
 
 some notes on hardening
 
-* set `--rproxy 0` if your copyparty is directly facing the internet (not through a reverse-proxy)
+* set `--rproxy 0` *if and only if* your copyparty is directly facing the internet (not through a reverse-proxy)
   * cors doesn't work right otherwise
 * if you allow anonymous uploads or otherwise don't trust the contents of a volume, you can prevent XSS with volflag `nohtml`
-  * this returns html documents as plaintext, and also disables markdown rendering
-* when running behind a reverse-proxy, listen on a unix-socket for tighter access control (and more performance); see [reverse-proxy](#reverse-proxy) or `--help-bind`
+  * this returns html documents and svg images as plaintext, and also disables markdown rendering
+  * the `nohtml` volflag also enables `noscript` which, on its own, prevents *most* javascript from running; enabling just `noscript` without `nohtml` makes it probably-safe (see below) to view html and svg files, but `nohtml` is necessary to block javascript in markdown documents
+    * "probably-safe" because it relies on `Content-Security-Policy` so it depends on the reverseproxy to forward it, and the browser to understand it, but `nohtml` (the nuclear option) always works
+* when running behind a reverse-proxy, listen on a unix-socket for tighter access control (and more performance); see [reverse-proxy](#reverse-proxy) or [`--help-bind`](https://copyparty.eu/cli/#bind-help-page)
 
 safety profiles:
 
@@ -2668,7 +3112,7 @@ dirkeys are generated based on another salt (`--dk-salt`) + filesystem-path and 
 
 ## password hashing
 
-you can hash passwords  before putting them into config files / providing them as arguments; see `--help-pwhash` for all the details
+you can hash passwords  before putting them into config files / providing them as arguments; see [`--help-pwhash`](https://copyparty.eu/cli/#pwhash-help-page) for all the details
 
 `--ah-alg argon2` enables it, and if you have any plaintext passwords then it'll print the hashed versions on startup so you can replace them
 
@@ -2676,17 +3120,34 @@ optionally also specify `--ah-cli` to enter an interactive mode where it will ha
 
 the default configs take about 0.4 sec and 256 MiB RAM to process a new password on a decent laptop
 
+when generating hashes using `--ah-cli` for docker or systemd services, make sure it is using the same `--ah-salt` by:
+* inspecting the generated salt using `--show-ah-salt` in copyparty service configuration
+* setting the same `--ah-salt` in both environments
+
+> ⚠️ if you have enabled `--usernames` then provide the password as `username:password` when hashing it, for example `ed:hunter2`
+
 
 ## https
 
-both HTTP and HTTPS are accepted  by default, but letting a [reverse proxy](#reverse-proxy) handle the https/tls/ssl would be better (probably more secure by default)
+both HTTP and HTTPS are accepted  by default, but please ignore copyparty's built-in https/tls support and instead use a [reverse proxy](#reverse-proxy) to handle https/tls/ssl
 
-copyparty doesn't speak HTTP/2 or QUIC, so using a reverse proxy would solve that as well -- but note that HTTP/1 is usually faster than both HTTP/2 and HTTP/3
+* reverseproxies do a better job following [best practices](https://cipherlist.eu/) meaning they are more secure, and probably also have higher performance
+* also, copyparty doesn't speak HTTP/2 or QUIC, so using a reverse proxy would solve that as well -- but note that HTTP/1 is usually faster than both HTTP/2 and HTTP/3
 
 if [cfssl](https://github.com/cloudflare/cfssl/releases/latest) is installed, copyparty will automatically create a CA and server-cert on startup
 * the certs are written to `--crt-dir` for distribution, see `--help` for the other `--crt` options
 * this will be a self-signed certificate so you must install your `ca.pem` into all your browsers/devices
 * if you want to avoid the hassle of distributing certs manually, please consider using a reverse proxy
+
+to install cfssl on windows:
+* [download](https://github.com/cloudflare/cfssl/releases/latest) `cfssl_windows_amd64.exe`, `cfssljson_windows_amd64.exe`, `cfssl-certinfo_windows_amd64.exe`
+* rename them to `cfssl.exe`, `cfssljson.exe`, `cfssl-certinfo.exe`
+* put them in PATH, for example inside `c:\windows\system32`
+
+if you really wanna give copyparty an existing TLS certificate then do one of the following:
+* `--no-crt --cert server.pem` where `server.pem` is a concatenation of key + cert + chain (in that order), or...
+* `--no-crt --cert server.crt --certkey server.key` where `server.key` is the key, and `server.crt` is a concatenation of cert + chain (in that order)
+* file-extensions don't matter, but all files are expected to be [PEM-style](https://github.com/9001/copyparty/blob/hovudstraum/copyparty/res/insecure.pem)
 
 
 # recovering from crashes
@@ -2722,13 +3183,15 @@ mandatory deps:
 
 ## optional dependencies
 
-install these to enable bonus features
+enable bonus features  by installing these python-packages from pypi or so:
 
 enable [hashed passwords](#password-hashing) in config: `argon2-cffi`
 
 enable [ftp-server](#ftp-server):
 * for just plaintext FTP, `pyftpdlib` (is built into the SFX)
 * with TLS encryption, `pyftpdlib pyopenssl`
+
+enable [sftp-server](#sftp-server): `paramiko`
 
 enable [music tags](#metadata-from-audio-files):
 * either `mutagen` (fast, pure-python, skips a few tags, makes copyparty GPL? idk)
@@ -2737,15 +3200,18 @@ enable [music tags](#metadata-from-audio-files):
 enable [thumbnails](#thumbnails) of...
 * **images:** `Pillow` and/or `pyvips` and/or `ffmpeg` (requires py2.7 or py3.5+)
 * **videos/audio:** `ffmpeg` and `ffprobe` somewhere in `$PATH`
-* **HEIF pictures:** `pyvips` or `ffmpeg` or `pyheif-pillow-opener` (requires Linux or a C compiler)
+* **HEIF pictures:** `pyvips` or `ffmpeg` or `pillow-heif`
 * **AVIF pictures:** `pyvips` or `ffmpeg` or `pillow-avif-plugin` or pillow v11.3+
 * **JPEG XL pictures:** `pyvips` or `ffmpeg`
+* **RAW images:** `rawpy`, plus one of `pyvips` or `Pillow` (for some formats)
 
 enable sending [zeromq messages](#zeromq) from event-hooks: `pyzmq`
 
-enable [smb](#smb-server) support (**not** recommended): `impacket==0.12.0`
+enable [smb](#smb-server) support (**not** recommended): `impacket==0.13.0`
 
-`pyvips` gives higher quality thumbnails than `Pillow` and is 320% faster, using 270% more ram: `sudo apt install libvips42 && python3 -m pip install --user -U pyvips`
+`pyvips` gives higher quality thumbnails than `Pillow` and is 320% faster, using 270% more ram
+* to install `pyvips` on Linux: `sudo apt install libvips42 && python3 -m pip install --user -U pyvips`
+* to install `pyvips` on windows: `pip install --user -U "pyvips[binary]"`
 
 to install FFmpeg on Windows, grab [a recent build](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z) -- you need `ffmpeg.exe` and `ffprobe.exe` from inside the `bin` folder; copy them into `C:\Windows\System32` or any other folder that's in your `%PATH%`
 
@@ -2767,12 +3233,17 @@ set any of the following environment variables to disable its associated optiona
 | `PRTY_NO_FFPROBE`    | **audio transcoding** goes byebye, **thumbnailing** must be handled by Pillow/libvips, **metadata-scanning** must be handled by mutagen |
 | `PRTY_NO_MAGIC`      | do not use [magic](https://pypi.org/project/python-magic/) for filetype detection |
 | `PRTY_NO_MUTAGEN`    | do not use [mutagen](https://pypi.org/project/mutagen/) for reading metadata from media files; will fallback to ffprobe |
+| `PRTY_NO_PARAMIKO`   | disable sftp server ([paramiko](https://www.paramiko.org/)-based) |
+| `PRTY_NO_PARTFTPY`   | disable tftp server ([partftpy](https://github.com/9001/partftpy)-based) |
 | `PRTY_NO_PIL`        | disable all [Pillow](https://pypi.org/project/pillow/)-based thumbnail support; will fallback to libvips or ffmpeg |
 | `PRTY_NO_PILF`       | disable Pillow `ImageFont` text rendering, used for folder thumbnails |
 | `PRTY_NO_PIL_AVIF`   | disable Pillow avif support (internal and/or [plugin](https://pypi.org/project/pillow-avif-plugin/)) |
-| `PRTY_NO_PIL_HEIF`   | disable 3rd-party Pillow plugin for [HEIF support](https://pypi.org/project/pyheif-pillow-opener/) |
+| `PRTY_NO_PIL_HEIF`   | disable 3rd-party Pillow plugin for [HEIF support](https://pypi.org/project/pillow-heif/) |
+| `PRTY_NO_PIL_JXL`    | disable 3rd-party Pillow plugin for [JXL support](https://pypi.org/project/pillow-jxl-plugin/) |
 | `PRTY_NO_PIL_WEBP`   | disable use of native webp support in Pillow |
 | `PRTY_NO_PSUTIL`     | do not use [psutil](https://pypi.org/project/psutil/) for reaping stuck hooks and plugins on Windows |
+| `PRTY_NO_PYFTPD`     | disable ftp(s) server ([pyftpdlib](https://pypi.org/project/pyftpdlib/)-based) |
+| `PRTY_NO_RAW`        | disable all [rawpy](https://pypi.org/project/rawpy/)-based thumbnail support for RAW images |
 | `PRTY_NO_VIPS`       | disable all [libvips](https://pypi.org/project/pyvips/)-based thumbnail support; will fallback to Pillow or ffmpeg |
 
 example: `PRTY_NO_PIL=1 python3 copyparty-sfx.py`
@@ -2780,6 +3251,20 @@ example: `PRTY_NO_PIL=1 python3 copyparty-sfx.py`
 * `PRTY_NO_PIL` saves ram
 * `PRTY_NO_VIPS` saves ram and startup time
 * python2.7 on windows: `PRTY_NO_FFMPEG` + `PRTY_NO_FFPROBE` saves startup time
+
+
+### dependency unvendoring
+
+force use of system modules  instead of the vendored versions:
+
+| env-var              | what it does |
+| -------------------- | ------------ |
+| `PRTY_SYS_ALL`       | all of the below |
+| `PRTY_SYS_DNSLIB`    | replace [stolen/dnslib](./copyparty/stolen/dnslib) with [upstream](https://pypi.org/project/dnslib/) |
+| `PRTY_SYS_IFADDR`    | replace [stolen/ifaddr](./copyparty/stolen/ifaddr) with [upstream](https://pypi.org/project/ifaddr/) |
+| `PRTY_SYS_QRCG`      | replace [stolen/qrcodegen.py](./copyparty/stolen/qrcodegen.py) with [upstream](https://github.com/nayuki/QR-Code-generator/blob/master/python/qrcodegen.py) |
+
+to debug, run copyparty with `PRTY_MODSPEC=1` to see where it's getting each module from
 
 
 ## optional gpl stuff
@@ -2792,6 +3277,8 @@ these are standalone programs and will never be imported / evaluated by copypart
 # sfx
 
 the self-contained "binary" (recommended!)  [copyparty-sfx.py](https://github.com/9001/copyparty/releases/latest/download/copyparty-sfx.py) will unpack itself and run copyparty, assuming you have python installed of course
+
+if you only need english, [copyparty-en.py](https://github.com/9001/copyparty/releases/latest/download/copyparty-en.py) is the same thing but smaller
 
 you can reduce the sfx size by repacking it; see [./docs/devnotes.md#sfx-repack](./docs/devnotes.md#sfx-repack)
 
@@ -2820,12 +3307,13 @@ then again, if you are already into downloading shady binaries from the internet
 
 ## zipapp
 
-another emergency alternative, [copyparty.pyz](https://github.com/9001/copyparty/releases/latest/download/copyparty.pyz)  has less features, is slow, requires python 3.7 or newer, worse compression, and more importantly is unable to benefit from more recent versions of jinja2 and such (which makes it less secure)... lots of drawbacks with this one really -- but it does not unpack any temporary files to disk, so it *may* just work if the regular sfx fails to start because the computer is messed up in certain funky ways, so it's worth a shot if all else fails
+another emergency alternative, [copyparty.pyz](https://github.com/9001/copyparty/releases/latest/download/copyparty.pyz)  has less features, is slow, requires python 3.7 or newer, worse compression, and more importantly is unable to benefit from more recent versions of jinja2 and such (which makes it less secure)... lots of drawbacks with this one really -- but, unlike the sfx, it is a completely normal zipfile which does not unpack any temporary files to disk, so it *may* just work if the regular sfx fails to start because the computer is messed up in certain funky ways, so it's worth a shot if all else fails
 
 run it by doubleclicking it, or try typing `python copyparty.pyz` in your terminal/console/commandline/telex if that fails
 
 it is a python [zipapp](https://docs.python.org/3/library/zipapp.html) meaning it doesn't have to unpack its own python code anywhere to run, so if the filesystem is busted it has a better chance of getting somewhere
-* but note that it currently still needs to extract the web-resources somewhere (they'll land in the default TEMP-folder of your OS)
+
+> there is also [copyparty-en.pyz](https://github.com/9001/copyparty/releases/latest/download/copyparty-en.pyz), english-only and without smb support (enterprise-friendly)
 
 
 # install on android
@@ -2841,6 +3329,32 @@ after the initial setup, you can launch copyparty at any time by running `copypa
 if you want thumbnails (photos+videos) and you're okay with spending another 132 MiB of storage, `pkg install ffmpeg && python3 -m pip install --user -U pillow`
 
 * or if you want to use `vips` for photo-thumbs instead, `pkg install libvips && python -m pip install --user -U wheel && python -m pip install --user -U pyvips && (cd /data/data/com.termux/files/usr/lib/; ln -s libgobject-2.0.so{,.0}; ln -s libvips.so{,.42})`
+
+if you are suddenly unable to access storage (permission issues), try forcequitting termux, revoke all of its permissions in android settings, and run the command `termux-setup-storage`
+
+
+# install on iOS
+
+first install one of the following:
+* [a-Shell mini](https://apps.apple.com/us/app/a-shell-mini/id1543537943) gives you the essential features
+* [a-Shell](https://apps.apple.com/us/app/a-shell/id1473805438) also enables audio transcoding and better thubmnails
+
+and then copypaste the following command into `a-Shell`:
+
+```sh
+curl -L https://github.com/9001/copyparty/raw/refs/heads/hovudstraum/contrib/setup-ashell.sh | sh
+```
+
+> if you want the latest copyparty beta, then do this instead:  
+> `curl -L https://copyparty.eu/beta/setup-ashell.sh | sh`
+
+what this does:
+* creates a basic [config file](#accounts-and-volumes) named `cpc` which you can edit with `vim cpc`
+* adds the command `cpp` to launch copyparty with that config file
+
+known issues:
+* cannot run in the background; it needs to be on-screen to accept connections / uploads / downloads
+* the best way to exit copyparty is to swipe away the app
 
 
 # reporting bugs

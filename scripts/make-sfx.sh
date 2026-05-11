@@ -17,10 +17,27 @@ help() { exec cat <<'EOF'
 # `re` does a repack of an sfx which you already executed once
 #   (grabs files from the sfx-created tempdir), overrides `clean`
 #
-# `gz` creates a gzip-compressed python sfx instead of bzip2
-#
 # `lang` limits which languages/translations to include,
 #   for example `lang eng` or `lang eng|nor`
+#
+# _____________________________________________________________________
+# compression tweaks:
+#
+# `gz` creates a gzip-compressed python sfx instead of bzip2
+#   (improves compat with minimal and/or ancient pythons)
+#
+# `gzz 50` uses zopfli to create a gzip-compressed python sfx
+#   (better compression than regular gz without affecting compat)
+#
+# `xz` creates an xz-compressed python sfx instead of bzip2
+#   (tiny bit smaller, but needs modern python to run)
+#
+# `nopk` disables js/css compression; builds faster, and
+#   the sfx becomes smaller, but reduces runtime performance
+#
+# `udep` unpacks compressed js/css (use with `nopk` and `xz`);
+#   even smaller sfx, much worse RAM/network waste at runtime
+#   (only useful for jokes such as putting the sfx on a floppy)
 #
 # _____________________________________________________________________
 # core features:
@@ -31,7 +48,11 @@ help() { exec cat <<'EOF'
 #
 # `no-tfp` saves ~10k by removing the tftp server, disabling --tftp
 #
+# `no-sfp` saves ~?k by removing the sftp server, disabling --sftp
+#
 # `no-zm` saves ~7k by removing the zeroconf mDNS server
+#
+# `no-z` saves ~7k by removing all zeroconf (mDNS, SSDP)
 #
 # `no-smb` saves ~3.5k by removing the smb / cifs server
 #
@@ -41,12 +62,10 @@ help() { exec cat <<'EOF'
 # `no-cm` saves ~89k by removing easymde/codemirror
 #   (the fancy markdown editor)
 #
-# `no-hl` saves ~41k by removing syntax hilighting in the text viewer
+# `no-hl` saves ~41k by removing syntax highlighting in the text viewer
 #
 # `no-fnt` saves ~9k by removing the source-code-pro font
 #   (browsers will try to use 'Consolas' instead)
-#
-# `no-dd` saves ~2k by removing the mouse cursor
 #
 # _____________________________________________________________________
 # build behavior:
@@ -61,8 +80,8 @@ help() { exec cat <<'EOF'
 #
 # _____________________________________________________________________
 # some usage examples:
-#   ./scripts/make-sfx.sh lang eng no-cm no-hl no-dd no-fnt no-smb no-pf
-#   ./scripts/rls.sh sfx  lang eng no-cm no-hl no-dd no-fnt no-smb no-pf
+#   ./scripts/make-sfx.sh lang eng no-cm no-hl no-fnt no-smb no-pf
+#   ./scripts/rls.sh sfx  lang eng no-cm no-hl no-fnt no-smb no-pf
 #   (reduces v1.14.2 from 700k to 495k)
 
 EOF
@@ -76,7 +95,6 @@ gtar=$(command -v gtar || command -v gnutar) || true
 	sed()  { gsed  "$@"; }
 	find() { gfind "$@"; }
 	sort() { gsort "$@"; }
-	shuf() { gshuf "$@"; }
 	nproc() { gnproc; }
 	sha1sum() { shasum "$@"; }
 	unexpand() { gunexpand "$@"; }
@@ -109,25 +127,31 @@ pybin=$(command -v python3 || command -v python) || {
 
 langs=
 use_gz=
+use_xz=
 zopf=2000
+udep=
 while [ ! -z "$1" ]; do
 	case $1 in
 		clean)  clean=1  ; ;;
 		re)     repack=1 ; ;;
+		xz)     use_xz=1 ; ;;
 		gz)     use_gz=1 ; ;;
 		gzz)    shift;use_gzz=$1;use_gz=1; ;;
+		no-sfp) no_sfp=1 ; ;;
 		no-ftp) no_ftp=1 ; ;;
 		no-tfp) no_tfp=1 ; ;;
 		no-smb) no_smb=1 ; ;;
 		no-zm)  no_zm=1  ; ;;
+		no-z)   no_zm=1;no_z=1; ;;
 		no-pf)  no_pf=1  ; ;;
 		no-fnt) no_fnt=1 ; ;;
 		no-hl)  no_hl=1  ; ;;
-		no-dd)  no_dd=1  ; ;;
 		no-cm)  no_cm=1  ; ;;
 		dl-wd)  dl_wd=1  ; ;;
 		ign-wd) ign_wd=1 ; ;;
 		fast)   zopf=    ; ;;
+		nopk)   zopf=no  ; ;;
+		udep)   udep=1   ; ;;
 		lang)   shift;langs="$1"; ;;
 		*)      help     ; ;;
 	esac
@@ -160,9 +184,9 @@ stamp=$(
 	done | sort | tail -n 1 | sha1sum | cut -c-16
 )
 
-rm -rf sfx$CSN/*
-mkdir -p sfx$CSN build
-cd sfx$CSN
+rm -rf sfx/*
+mkdir -p sfx build
+cd sfx
 
 tmpdir="$(
 	printf '%s\n' "$TMPDIR" /tmp |
@@ -182,6 +206,8 @@ necho() {
 }
 
 [ $repack ] || {
+	(cd ../scripts; ./genlic.py ../copyparty/res/COPYING.txt)
+
 	necho collecting ipaddress
 	f="../build/ipaddress-1.0.23.tar.gz"
 	[ -e "$f" ] ||
@@ -221,6 +247,8 @@ necho() {
 	tar -zxf $f
 	mv pyftpdlib-*/pyftpdlib .
 	rm -rf pyftpdlib-* pyftpdlib/test
+	patch -s -p1 <../scripts/patches/pyftpdlib-win313.patch
+	patch -s -p1 <../scripts/patches/pyftpdlib-fe80.patch
 	for f in pyftpdlib/_async{hat,ore}.py; do
 		[ -e "$f" ] || continue;
 		iawk 'NR<4||NR>27||!/^#/;NR==4{print"# license: https://opensource.org/licenses/ISC\n"}' $f
@@ -309,8 +337,6 @@ necho() {
 
 	# remove type hints before build instead
 	(cd copyparty; PYTHONPATH="..:$PYTHONPATH" "$pybin" ../../scripts/strip_hints/a.py; rm uh)
-
-	(cd ../scripts; ./genlic.py ../copyparty/res/COPYING.txt)
 }
 
 [ ! -e copyparty/web/deps/mini-fa.woff ] && [ $dl_wd ] && {
@@ -398,7 +424,7 @@ ts=$(date -u +%s)
 hts=$(date -u +%Y-%m%d-%H%M%S) # --date=@$ts (thx osx)
 
 mkdir -p ../dist
-sfx_out=../dist/copyparty-sfx$CSN
+sfx_out=../dist/copyparty-sfx
 
 echo cleanup
 find -name '*.pyc' -delete
@@ -409,7 +435,11 @@ find -name py.typed -delete
 find -type f \( -name .DS_Store -or -name ._.DS_Store \) -delete
 find -type f -name ._\* | while IFS= read -r f; do cmp <(printf '\x00\x05\x16') <(head -c 3 -- "$f") && rm -fv -- "$f"; done
 
-rm -f copyparty/web/deps/*.full.* copyparty/web/dbg-* copyparty/web/Makefile
+rm -f \
+	copyparty/web/deps/*.full.* \
+	copyparty/web/deps/README.md \
+	copyparty/web/dbg-* \
+	copyparty/web/Makefile*
 
 find copyparty | LC_ALL=C sort | sed -r 's/\.gz$//;s/$/,/' > have
 cat have | while IFS= read -r x; do
@@ -425,17 +455,49 @@ iawk '/^class _Base/{s=1}!s' ftp/pyftpdlib/authorizers.py
 iawk '/^ {0,4}[a-zA-Z]/{s=0}/^ {4}def (serve_forever|_loop)/{s=1}!s' ftp/pyftpdlib/servers.py
 rm -f ftp/pyftpdlib/{__main__,prefork}.py
 
-[ $no_ftp ] &&
+unhelp() {
+	iawk '!/add_argument\("--'$1'/{print;next}
+		/ent\("--'$1'"/{print gensub(/(help=")[^"]+/,"\\1not available in this build","1");next}
+		{sub(/help=.*/,"help=argparse.SUPPRESS)")}1' copyparty/__main__.py
+}
+
+unhelpg() {
+    iawk '/^def/{m=0}
+        /^def add_'$1'/{m=1}
+        m>1{sub(/, help=".*"\)$/, ", help=argparse.SUPPRESS)")}
+        m==1&&/, help="/{m++;sub(/, help=".*"\)$/, ", help=\"not available in this build\")")}
+        1' copyparty/__main__.py
+}
+
+[ $no_ftp ] && {
+	unhelp ftp
 	rm -rf copyparty/ftpd.py ftp
+}
 
-[ $no_tfp ] &&
+[ $no_tfp ] && {
+	unhelp tftp
 	rm -rf copyparty/tftpd.py partftpy
+}
 
-[ $no_smb ] &&
+[ $no_sfp ] && {
+	unhelp sftp
+	rm -rf copyparty/sftpd.py
+}
+
+[ $no_smb ] && {
+	unhelp smb
 	rm -f copyparty/smbd.py
+	ised 's/^( {8}elif )record\.name.*"impacket".*/\10:/' copyparty/util.py
+}
 
 [ $no_zm ] &&
+    iawk '$1=="],"{s=0}/"mDNS debugging"/{s=1;sub(/".*/,"\"not available in this build\",\"\"");print};!s' copyparty/__main__.py &&
+    unhelpg zc_mdns &&
 	rm -rf copyparty/mdns.py copyparty/stolen/dnslib
+
+[ $no_z ] &&
+    unhelpg '(zeroconf|zc_ssdp)' &&
+	rm -rf copyparty/ssdp.py copyparty/multicast.py
 
 [ $no_pf ] &&
 	rm -rf copyparty/web/a/partyfuse.py copyparty/web/deps/fuse.py
@@ -456,22 +518,17 @@ rm -f ftp/pyftpdlib/{__main__,prefork}.py
 	ised "s/src:.*scp.*\)/src:local('Consolas')/" $f
 }
 
-[ $no_dd ] && {
-	rm -rf copyparty/web/dd
-	f=copyparty/web/browser.css
-	gzip -d "$f.gz" || true
-	ised 's/(cursor: ?)url\([^)]+\), ?(pointer)/\1\2/; s/[0-9]+% \{cursor:[^}]+\}//; s/animation: ?cursor[^};]+//' $f
-}
-
 [ $langs ] && {
 	echo $langs | grep -q eng || {
 		langs="eng|$langs"
 		aerr "ERROR: removing english is not supported; will do this instead: $langs"
 	}
-	for f in copyparty/web/{browser.js,splash.js}; do
-		gzip -d "$f.gz" || true
-		iawk '/^\}/{l=0} !l; /^var Ls =/{l=1;next} !l{next} o; /^\t["}]/{o=0} /^\t"'"$langs"'"/{o=1;print}' $f
-	done
+	f=copyparty/web/browser.js
+	gzip -d "$f.gz" || true
+	iawk '/^\]/{s=0} !s; /^var LANGN /{s=1;next} !s{next} /"'"$langs"'"/' $f
+	ls -1 copyparty/web/tl/* >t
+	grep -vE "/($langs)\." <t | xargs -- rm
+	rm t
 }
 
 [ ! $repack ] && {
@@ -538,12 +595,17 @@ done
 
 gzres() {
 	local pk=
+	[ "$zopf" = no ] && return
 	[ $zopf ] && command -v zopfli && pk="zopfli --i$zopf"
 	[ $zopf ] && command -v pigz && pk="pigz -11 -I $zopf"
 	[ -z "$pk" ] && pk='gzip'
 
 	np=$(nproc)
 	echo "$pk #$np"
+
+	find copyparty/web/tl | grep '\.js$' | while IFS= read -r f; do
+		/bin/sh ../copyparty/web/Makefile.s1 <"$f" >t; tmv "$f"
+	done
 
 	while IFS=' ' read -r _ f; do
 		while true; do
@@ -555,70 +617,41 @@ gzres() {
 		$pk "$f" &
 	done < <(
 		find -printf '%s %p\n' |
-		grep -E '\.(js|css)$' |
+		grep -E '\.(js|css)$|/web/a/.*\.txt$' |
 		grep -vF /deps/ |
 		sort -nr
 	)
 	wait
 	echo
 }
+gzres
 
-
-zdir="$tmpdir/cpp-mksfx$CSN"
-[ -e "$zdir/$stamp" ] || rm -rf "$zdir"
-mkdir -p "$zdir"
-echo a > "$zdir/$stamp"
-nf=$(ls -1 "$zdir"/arc.* 2>/dev/null | wc -l)
-[ $nf -ge 2 ] && [ ! $repack ] && use_zdir=1 || use_zdir=
-
-[ $use_zdir ] || {
-	echo "$nf alts += 1"
-	gzres
-	[ $repack ] ||
-		tar -cf "$zdir/arc.$(date +%s)" copyparty/web/*.gz
-}
-[ $use_zdir ] && {
-	arcs=("$zdir"/arc.*)
-	n=$(( $RANDOM % ${#arcs[@]} ))
-	arc="${arcs[n]}"
-	echo "using $arc"
-	tar -xf "$arc"
-	for f in copyparty/web/*.gz; do
-		rm "${f%.*}"
-	done
-}
-
+[ $udep ] &&
+    find -iname '*.gz' | while IFS= read -r x; do gzip -d "$x"; done
 
 echo gen tarlist
 for d in copyparty partftpy magic j2 py2 py37 ftp; do find $d -type f || true; done |  # strip_hints
 sed -r 's/(.*)\.(.*)/\2 \1/' | LC_ALL=C sort |
 sed -r 's/([^ ]*) (.*)/\2.\1/' | grep -vE '/list1?$' > list1
-
-for n in {1..50}; do
-	(grep -vE '\.gz$' list1; grep -E '\.gz$' list1 | (shuf||gshuf) ) >list || true
-	s=$( (sha1sum||shasum) < list | cut -c-16)
-	grep -q $s "$zdir/h" 2>/dev/null && continue
-	echo $s >> "$zdir/h"
-	break
-done
-[ $n -eq 50 ] && exit
+(grep -vE '\.gz$' list1; grep -E '\.gz$' list1) >list || true
 
 echo creating tar
 tar -cf tar "${targs[@]}" --numeric-owner -T list
 
-pc="bzip2 -"; pe=bz2
+pc="bzip2 -"; pe=bz2; pl=$(echo {2..9})
 [ $use_gz ] && pc="gzip -" && pe=gz
-[ $use_gzz ] && pc="pigz -11 -I$use_gzz" && pe=gz
+[ $use_gzz ] && pc="pigz -11 -I$use_gzz" && pe=gz && pl=0
+[ $use_xz ] && pc="xz -zeT0 -" && pe=xz
 
 echo compressing tar
-for n in {2..9}; do cp tar t.$n; nice -n20 $pc$n t.$n & done; wait
+for n in $pl; do cp tar t.$n; nice -n20 $pc$n t.$n & done; wait
 minf=$(for f in t.*.$pe; do
 	s1=$(wc -c <$f)
 	s2=$(tr -d '\r\n\0' <$f | wc -c)
 	echo "$(( s2+(s1-s2)*3 )) $f"
 done | sort -n | awk '{print$2;exit}')
 mv -v $minf tar.bz2
-rm t.* || true
+rm t.* 2>/dev/null || true
 exts=()
 
 
@@ -630,13 +663,17 @@ suf=
 	sed -r 's/"r:bz2"/"r:gz"/' <$py >$py.t
 	py=$py.t
 }
+[ $use_xz ] && {
+	sed -r 's/"r:bz2"/"r:xz"/' <$py >$py.t
+	py=$py.t
+}
 
 "$pybin" $py --sfx-make tar.bz2 $ver $ts
 mv sfx.out $sfx_out$suf.py
 
 exts+=($suf.py)
-[ $use_gz ] &&
-	rm $py
+[ $use_gz ] && rm $py
+[ $use_xz ] && rm $py
 
 
 chmod 755 $sfx_out*

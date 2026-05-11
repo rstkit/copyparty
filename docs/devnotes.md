@@ -15,6 +15,7 @@
     * [general](#general)
 * [event hooks](#event-hooks) - on writing your own [hooks](../README.md#event-hooks)
     * [hook effects](#hook-effects) - hooks can cause intentional side-effects
+    * [hook import](#hook-import) - the `I` flag runs the hook inside copyparty
 * [assumptions](#assumptions)
     * [mdns](#mdns)
 * [sfx repack](#sfx-repack) - reduce the size of an sfx by removing features
@@ -154,16 +155,22 @@ there is a static salt for all passwords;
 * method `uPOST` = url-encoded post
 * `FILE` = conventional HTTP file upload entry (rfc1867 et al, filename in `Content-Disposition`)
 
-authenticate using header `Cookie: cppwd=foo` or url param `&pw=foo`
+clients can authenticate in the following ways; the first of these which is not blank will be used:
+* url-param `&pw=foo` -- can be disabled with `--pw-urlp=A` (or renamed, if provided value is lowercase)
+* then, header `PW: foo` -- can be disabled with `--pw-hdr=A` (or renamed, if provided value is lowercase)
+* then, basic-auth -- can be disabled with `--no-bauth`
+* then, depending on protocol, header `Cookie: cppwd=foo` on plaintext http, or header `Cookie: cppws=foo` on https
 
 ## read
 
 | method | params | result |
 |--|--|--|
+| GET | `?dl` | download file (don't show in-browser) |
 | GET | `?ls` | list files/folders at URL as JSON |
 | GET | `?ls&dots` | list files/folders at URL as JSON, including dotfiles |
 | GET | `?ls=t` | list files/folders at URL as plaintext |
 | GET | `?ls=v` | list files/folders at URL, terminal-formatted |
+| GET | `?opds` | list files/folders at URL as opds feed, for e-readers |
 | GET | `?lt` | in listings, use symlink timestamps rather than targets |
 | GET | `?b` | list files/folders at URL as simplified HTML |
 | GET | `?tree=.` | list one level of subdirectories inside URL |
@@ -197,6 +204,8 @@ authenticate using header `Cookie: cppwd=foo` or url param `&pw=foo`
 | GET | `?th` | get image/video at URL as thumbnail |
 | GET | `?th=opus` | convert audio file to 128kbps opus |
 | GET | `?th=caf` | ...in the iOS-proprietary container |
+| GET | `?zls` | get listing of filepaths in zip file at URL |
+| GET | `?zget=path` | get specific file from inside a zip file at URL |
 
 | method | body | result |
 |--|--|--|
@@ -221,11 +230,13 @@ authenticate using header `Cookie: cppwd=foo` or url param `&pw=foo`
 | PUT | `?ck=md5` | (binary data) | return md5 instead of sha512 |
 | PUT | `?gz` | (binary data) | compress with gzip and write into file at URL |
 | PUT | `?xz` | (binary data) | compress with xz and write into file at URL |
+| PUT | `?apnd` | (binary data) | append to existing file |
 | mPOST | | `f=FILE` | upload `FILE` into the folder at URL |
 | mPOST | `?j` | `f=FILE` | ...and reply with json |
 | mPOST | `?ck` | `f=FILE` | ...and disable checksum gen (faster) |
 | mPOST | `?ck=md5` | `f=FILE` | ...and return md5 instead of sha512 |
 | mPOST | `?replace` | `f=FILE` | ...and overwrite existing files |
+| mPOST | `?apnd` | `f=FILE` | ...and append to existing files |
 | mPOST | `?media` | `f=FILE` | ...and return medialink (not hotlink) |
 | mPOST | | `act=mkdir`, `name=foo` | create directory `foo` at URL |
 | POST | `?delete` | | delete URL recursively |
@@ -244,6 +255,7 @@ upload modifiers:
 | `Accept: json` | `want=json` | return upload info as json; same as `?j` |
 | `Rand: 4` | `rand=4` | generate random filename with 4 characters |
 | `Life: 30` | `life=30` | delete file after 30 seconds |
+| `Replace: 1` | `replace` | overwrite file if exists |
 | `CK: no` | `ck` | disable serverside checksum (maybe faster) |
 | `CK: md5` | `ck=md5` | return md5 checksum instead of sha512 |
 | `CK: sha1` | `ck=sha1` | return sha1 checksum |
@@ -252,7 +264,9 @@ upload modifiers:
 | `CK: b2s` | `ck=b2s` | return blake2s checksum |
 
 * `life` only has an effect if the volume has a lifetime, and the volume lifetime must be greater than the file's
-
+* `replace` upload-modifier:
+  * the header `replace: 1` works for both PUT and multipart-post
+  * the url-param `replace` only works for multipart-post
 * server behavior of `msg` can be reconfigured with `--urlform`
 
 ## admin
@@ -275,6 +289,7 @@ upload modifiers:
 | GET | `?imgs=0` | ui: show list-view |
 | GET | `?thumb` | ui, grid-mode: show thumbnails |
 | GET | `?thumb=0` | ui, grid-mode: show icons |
+| POST | `?smsg=foo` | send-msg-to-serverlog / run xm hook |
 
 
 # event hooks
@@ -305,6 +320,14 @@ a subset of effect types are available for a subset of hook types,
 to trigger indexing of files `/foo/1.txt` and `/foo/bar/2.txt`, a hook can `print(json.dumps({"idx":{"vp":["/foo/1.txt","/foo/bar/2.txt"]}}))` (and replace "idx" with "del" to delete instead)
 * note: paths starting with `/` are absolute URLs, but you can also do `../3.txt` relative to the destination folder of each uploaded file
 
+## hook import
+
+the `I` flag runs the hook inside copyparty,  which can be very useful and dangerous:
+
+* around 140x faster because it doesn't need to launch a new subprocess
+* the hook can intentionally (or accidentally) mess with copyparty's internals
+  * very easy to crash things if not careful
+
 
 # assumptions
 
@@ -328,13 +351,54 @@ if you don't need all the features, you can repack the sfx and save a bunch of s
 
 the features you can opt to drop are
 * `cm`/easymde, the "fancy" markdown editor, saves ~89k
-* `hl`, prism, the syntax hilighter, saves ~41k
+* `hl`, prism, the syntax highlighter, saves ~41k
 * `fnt`, source-code-pro, the monospace font, saves ~9k
-* `dd`, the custom mouse cursor for the media player tray tab, saves ~2k
 
 for the `re`pack to work, first run one of the sfx'es once to unpack it
 
 **note:** you can also just download and run [/scripts/copyparty-repack.sh](https://github.com/9001/copyparty/blob/hovudstraum/scripts/copyparty-repack.sh) -- this will grab the latest copyparty release from github and do a few repacks; works on linux/macos (and windows with msys2 or WSL)
+
+
+# dependencies
+
+## vendored dependencies
+
+some third-party code has been vendored into the git repo; some for convenience, some because they have been lightly hacked to fit copyparty's usecase better:
+
+* inside the folder [/copyparty/stolen](https://github.com/9001/copyparty/tree/hovudstraum/copyparty/stolen) is python-libraries which runs on the serverside:
+  * `surrogateescape.py` (BSD2) can be removed; only needed for python2 support
+  * `qrcodegen.py` (MIT) can be removed and replaced with a systemwide install of the original [qrcodegen.py](https://github.com/nayuki/QR-Code-generator/blob/daa3114/python/qrcodegen.py);
+    * modifications: removed code/features that copyparty does not need/use
+  * `ifaddr` (BSD2) can be removed and replaced with a systemwide install of the original [ifaddr](https://github.com/ifaddr/ifaddr);
+    * modifications: support python2, support s390x / irix32 / graal
+  * `dnslib` (MIT) may be deleted and replaced with a systemwide install of the original [dnslib](https://github.com/paulc/dnslib/), HOWEVER:
+    * will cause problems for mDNS in some network environments; 6c1cf68bca7376c6291c3cfe710ebd5bd5ed3e6c + 94d1924fa97e5faaf1ebfd85cae73faebcb89fa1
+
+* inside the folder `/copyparty/web/deps` (only in distributed archives/builds) is [fuse.py](https://github.com/fusepy/fusepy/blob/master/fuse.py), to make it downloadable from the connect-page on the web-ui
+
+* inside the folder `/copyparty/web` (only in distributed archives/builds) is a collection of javascript libraries (produced by [deps-docker](https://github.com/9001/copyparty/tree/hovudstraum/scripts/deps-docker)) which are used clientside by the web-UI:
+  * [marked.js](https://github.com/markedjs/marked/releases) (MIT) powers the markdown editor, and has been [patched](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/marked-ln.patch) to include the line-numbers of each input line, to enable scroll-sync between the editor and the preview-pane. This patch is [not strictly necessary anymore](https://github.com/markedjs/marked/issues/2134) but I haven't gotten around to making the change yet
+  * [easyMDE](https://github.com/Ionaru/easy-markdown-editor/) (MIT), the alternative markdown editor, has the same [patch](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/easymde-ln.patch) to enable scroll-sync, and also some [size-golfing](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/easymde.patch)
+  * [codemirror5](https://github.com/codemirror/codemirror5/) (MIT) has no noteworthy changes, and has only been [size-golfed](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/codemirror.patch), could have been used as-is
+  * [DOMPurify](https://github.com/cure53/DOMPurify) (Apache2) is used as-is
+  * [hash-wasm](https://github.com/Daninet/hash-wasm/) (MIT) is used entirely as-is
+  * [asmcrypto.js](https://github.com/openpgpjs/asmcrypto.js/) (MIT) is abandoned software, and used almost as-is (slightly golfed for size); it is probably fine to exclude/remove this, since it will only break support for uploading from really old browsers (IE10/IE11) using up2k (the "fancy uploader")
+  * [prism.js](https://github.com/PrismJS/prism/) (MIT) is built with a [selection of languages](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/genprism.py); there is an assumption about the exact subset of languages elsewhere in copyparty, but there shouldn't be any big consequences of replacing it with a different build if that exists in Fedora
+  * an old version of [SourceCodePro](https://github.com/adobe-fonts/source-code-pro) (OFL-1.1), is size-reduced to [only the necessary characters](https://github.com/9001/copyparty/blob/41ed559faabdc180efc37fd027e7f1bb2d14d174/scripts/deps-docker/mini-fa.sh#L30-L31). There will be subtle layout issues if this is replaced with a newer version, because they changed some line-heights or something in later versions, but shouldn't be a big issue 
+  * an old version of [font-awesome](https://github.com/FortAwesome/Font-Awesome) (OFL-1.1), size-reduced to [only the necessary icons](https://github.com/9001/copyparty/blob/hovudstraum/scripts/deps-docker/mini-fa.sh). I believe a newer version should also work.
+
+## optional dependencies
+
+explained in the [main readme](https://github.com/9001/copyparty/tree/hovudstraum#optional-dependencies), but a quick recap:
+
+* recommended python libraries: `argon2-cffi paramiko pyftpdlib pyopenssl pillow rawpy pyzmq` [python-magic](https://pypi.org/project/python-magic/)
+  * only recommended on Windows: `psutil` (not very useful on Linux)
+  * NOT recommended: `impacket` because the feature it enables is a security nightmare
+  * NOT recommended: `mutagen` because ffmpeg produces better results (albeit slower)
+  * NOT recommended: `pyvips` because converting to jxl is extremely RAM-heavy
+  * NOT recommended: `pillow-heif` due to [legal reasons](https://github.com/9001/copyparty/blob/hovudstraum/docs/bad-codecs.md)
+* recommended programs: `ffmpeg ffprobe cfssl cfssljson cfssl-certinfo`
+  * FFmpeg powers audio transcoding, and thumbnails of formats not covered by pillow/pyvips
 
 
 # building
@@ -352,14 +416,23 @@ pip install jinja2 strip_hints  # MANDATORY
 pip install argon2-cffi  # password hashing
 pip install pyzmq  # send 0mq from hooks
 pip install mutagen  # audio metadata
+pip install paramiko  # sftp server
 pip install pyftpdlib  # ftp server
 pip install partftpy  # tftp server
 pip install impacket  # smb server -- disable Windows Defender if you REALLY need this on windows
-pip install Pillow pyheif-pillow-opener  # thumbnails
+pip install Pillow pillow-heif  # thumbnails
 pip install pyvips  # faster thumbnails
-pip install psutil  # better cleanup of stuck metadata parsers on windows 
+pip install psutil  # better cleanup of stuck metadata parsers on windows
 pip install black==21.12b0 click==8.0.2 bandit pylint flake8 isort mypy  # vscode tooling
 ```
+
+* on archlinux you can do this:
+  * `sudo pacman -Sy --needed python-{pip,isort,jinja,argon2-cffi,pyzmq,mutagen,paramiko,pyftpdlib,pillow}`
+  * then, as user: `python3 -m pip install --user --break-system-packages -U strip_hints black==21.12b0 click==8.0.2`
+  * for building docker images: `sudo pacman -Sy --needed qemu-user-static{,-binfmt} podman{,-docker} jq`
+
+* and if you want to run the python 2.7 tests:
+  * `git clone https://github.com/pyenv/pyenv .pyenv ; cd .pyenv/bin ; env PYTHON_CONFIGURE_OPTS='--enable-optimizations' PYTHON_CFLAGS='-march=native -mtune=native -std=c17' ./pyenv install 2.7.18 -v ; ln -s $HOME/.pyenv/versions/2.7.18/bin/python2 $HOME/bin/`
 
 
 ## just the sfx
@@ -392,6 +465,7 @@ if you are unable to use `build`, you can use the old setuptools approach instea
 ```bash
 python3 setup.py install --user setuptools wheel jinja2
 python3 setup.py build
+python3 setup.py bdist_wheel
 # you now have a wheel which you can install. or extract and repackage:
 python3 setup.py install --skip-build --prefix=/usr --root=$HOME/pe/copyparty
 ```
@@ -415,12 +489,18 @@ to get started, first `cd` into the `scripts` folder
 
 * if you want to build the `.pyz` standalone "binary", now run `./make-pyz.sh`
 
+* if you want to build the `tar.gz` for use in a linux-distro package, now run `./make-tgz-release.sh theVersionNumber`
+
 * if you want to build a pypi package, now run `./make-pypi-release.sh d`
 
 * if you want to build a docker-image, you have two options:
-  * if you want to use podman to build all docker-images for all supported architectures, now run `(cd docker; ./make.sh hclean; ./make.sh hclean pull img)`
-  * if you want to use docker to build all docker-images for your native architecture, now run `sudo make -C docker`
+  * if you want to use podman to build all docker-images for all supported architectures, now run `(cd docker; make -C base; ./make.sh hclean; ./make.sh hclean pull img)`
+  * if you want to use docker to build just the `ac` docker-image for your native architecture, now run `sudo make -C docker`
+    * to use docker to build something other than `ac`, list the image variants you want; `sudo make -C docker min im ac iv dj`
   * if you want to do something else, please take a look at `docker/make.sh` or `docker/Makefile` for inspiration
+  * beware of the following:
+    * if you build with docker, you get the [stock alpine-provided ffmpeg](https://github.com/9001/copyparty/blob/hovudstraum/docs/bad-codecs.md), which makes the docker-image almost twice as big
+    * if you build with podman (make.sh) you get the copyparty-official legally-comfy custom ffmpeg, but the first build takes about 2-3 hours longer
 
 * if you want to build the windows exe, first grab some snacks and a beer, [you'll need it](https://github.com/9001/copyparty/tree/hovudstraum/scripts/pyinstaller)
 

@@ -89,13 +89,15 @@ class SMB(object):
         smbserver.isInFileJail = self._is_in_file_jail
         self._disarm()
 
-        ip = next((x for x in self.args.i if ":" not in x), None)
+        zs = " " if self.args.smb6 else ":"
+        ip = next((x for x in self.args.smb_i if zs not in x), None)
         if not ip:
-            self.log("smb", "IPv6 not supported for SMB; listening on 0.0.0.0", 3)
+            self.log("smb", "IPv6 not enabled with --smb6; listening on 0.0.0.0", 3)
             ip = "0.0.0.0"
 
         port = int(self.args.smb_port)
-        srv = smbserver.SimpleSMBServer(listenAddress=ip, listenPort=port)
+        kw = {"ipv6": True} if ":" in ip else {}
+        srv = smbserver.SimpleSMBServer(listenAddress=ip, listenPort=port, **kw)
         try:
             if self.accs:
                 srv.setAuthCallback(self._auth_cb)
@@ -121,6 +123,7 @@ class SMB(object):
 
         self.srv = srv
         self.stop = srv.stop
+        ip = "[%s]" % (ip,) if kw else ip
         self.log("smb", "listening @ {}:{}".format(ip, port))
 
     def nlog(self, msg: str, c: Union[int, str] = 0) -> None:
@@ -191,7 +194,7 @@ class SMB(object):
         vfs, rem = self.asrv.vfs.get(vpath, uname, *perms)
         if not vfs.realpath:
             raise Exception("unmapped vfs")
-        return vfs, vjoin(vfs.realpath, rem)
+        return vfs, vfs.canonical(rem, False)
 
     def _listdir(self, vpath: str, *a: Any, **ka: Any) -> list[str]:
         vpath = vpath.replace("\\", "/").lstrip("/")
@@ -246,24 +249,29 @@ class SMB(object):
 
             ap = absreal(ap)
             xbu = vfs.flags.get("xbu")
-            if xbu and not runhook(
-                self.nlog,
-                None,
-                self.hub.up2k,
-                "xbu.smb",
-                xbu,
-                ap,
-                vpath,
-                "",
-                "",
-                "",
-                0,
-                0,
-                "1.7.6.2",
-                time.time(),
-                "",
-            ):
-                yeet("blocked by xbu server config: %r" % (vpath,))
+            if xbu:
+                hr = runhook(
+                    self.nlog,
+                    None,
+                    self.hub.up2k,
+                    "xbu.smb",
+                    xbu,
+                    ap,
+                    vpath,
+                    "",
+                    "",
+                    "",
+                    0,
+                    0,
+                    "1.7.6.2",
+                    time.time(),
+                    None,
+                )
+                t = hr.get("rejectmsg") or ""
+                if t or hr.get("rc") != 0:
+                    if not t:
+                        t = "blocked by xbu server config: %r" % (vpath,)
+                    yeet(t)
 
         ret = bos.open(ap, flags, *a, mode=chmod, **ka)
         if wr:
@@ -318,9 +326,9 @@ class SMB(object):
             t = "blocked rename (no-move-acc %s): /%s @%s"
             yeet(t % (vfs1.axs.umove, vp1, uname))
 
-        self.hub.up2k.handle_mv(uname, "1.7.6.2", vp1, vp2)
+        self.hub.up2k.handle_mv("", uname, "1.7.6.2", vp1, vp2)
         try:
-            bos.makedirs(ap2, vfs2.flags["chmod_d"])
+            bos.makedirs(ap2, vf=vfs2.flags)
         except:
             pass
 
@@ -373,7 +381,7 @@ class SMB(object):
             t = "blocked utime (no-write-acc %s): /%s @%s"
             yeet(t % (vfs.axs.uwrite, vpath, uname))
 
-        return bos.utime(ap, times)
+        bos.utime_c(info, ap, int(times[1]), False)
 
     def _p_exists(self, vpath: str) -> bool:
         # ap = "?"

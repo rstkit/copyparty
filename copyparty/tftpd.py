@@ -37,14 +37,15 @@ from .__init__ import EXE, PY2, TYPE_CHECKING
 from .authsrv import VFS
 from .bos import bos
 from .util import (
-    FN_EMB,
     UTC,
     BytesIO,
     Daemon,
     ODict,
     exclude_dotfiles,
+    exclude_dothidden,
     min_ex,
     runhook,
+    set_fperms,
     undot,
     vjoin,
     vsplit,
@@ -174,11 +175,11 @@ class Tftpd(object):
             p1, p2 = [int(x) for x in self.args.tftp_pr.split("-")]
             ports = list(range(p1, p2 + 1))
 
-        ips = self.args.i
+        ips = self.args.tftp_i
         if "::" in ips:
             ips.append("0.0.0.0")
 
-        ips = [x for x in ips if "unix:" not in x]
+        ips = [x for x in ips if not x.startswith(("unix:", "fd:"))]
 
         if self.args.tftp4:
             ips = [x for x in ips if ":" not in x]
@@ -267,7 +268,7 @@ class Tftpd(object):
         vfs, rem = self.asrv.vfs.get(vpath, "*", *perms)
         if perms[1] and "*" not in vfs.axs.uread and "wo_up_readme" not in vfs.flags:
             zs, fn = vsplit(vpath)
-            if fn.lower() in FN_EMB:
+            if fn.lower() in vfs.flags["emb_all"]:
                 vpath = vjoin(zs, "_wo_" + fn)
                 vfs, rem = self.asrv.vfs.get(vpath, "*", *perms)
 
@@ -318,7 +319,11 @@ class Tftpd(object):
         ls = virs + reals
 
         if "*" not in vn.axs.udot:
-            names = set(exclude_dotfiles([x[2] for x in ls]))
+            zsl = [x[2] for x in ls]
+            if "dothidden" in vn.flags and ".hidden" in zsl:
+                names = set(exclude_dothidden(zsl, fsroot))
+            else:
+                names = set(exclude_dotfiles(zsl))
             ls = [x for x in ls if x[2] in names]
 
         try:
@@ -362,24 +367,29 @@ class Tftpd(object):
                 yeet("blocked write; folder not world-deletable: /%s" % (vpath,))
 
             xbu = vfs.flags.get("xbu")
-            if xbu and not runhook(
-                self.nlog,
-                None,
-                self.hub.up2k,
-                "xbu.tftpd",
-                xbu,
-                ap,
-                vpath,
-                "",
-                "",
-                "",
-                0,
-                0,
-                "8.3.8.7",
-                time.time(),
-                "",
-            ):
-                yeet("blocked by xbu server config: %r" % (vpath,))
+            if xbu:
+                hr = runhook(
+                    self.nlog,
+                    None,
+                    self.hub.up2k,
+                    "xbu.tftpd",
+                    xbu,
+                    ap,
+                    vpath,
+                    "",
+                    "",
+                    "",
+                    0,
+                    0,
+                    "8.3.8.7",
+                    time.time(),
+                    None,
+                )
+                t = hr.get("rejectmsg") or ""
+                if t or hr.get("rc") != 0:
+                    if not t:
+                        t = "upload blocked by xbu server config: %r" % (vpath,)
+                    yeet(t)
 
         if not self.args.tftp_nols and bos.path.isdir(ap):
             return self._ls(vpath, "", 0, True)
@@ -388,8 +398,8 @@ class Tftpd(object):
             a = (self.args.iobuf,)
 
         ret = open(ap, mode, *a, **ka)
-        if wr and "chmod_f" in vfs.flags:
-            os.fchmod(ret.fileno(), vfs.flags["chmod_f"])
+        if wr and "fperms" in vfs.flags:
+            set_fperms(ret, vfs.flags)
 
         return ret
 
@@ -398,7 +408,9 @@ class Tftpd(object):
         if "*" not in vfs.axs.uwrite:
             yeet("blocked mkdir; folder not world-writable: /%s" % (vpath,))
 
-        return bos.mkdir(ap, vfs.flags["chmod_d"])
+        bos.mkdir(ap, vfs.flags["chmod_d"])
+        if "chown" in vfs.flags:
+            bos.chown(ap, vfs.flags["uid"], vfs.flags["gid"])
 
     def _unlink(self, vpath: str) -> None:
         # return bos.unlink(self._v2a("stat", vpath, *a)[1])

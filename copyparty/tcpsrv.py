@@ -7,26 +7,30 @@ import socket
 import sys
 import time
 
-from .__init__ import ANYWIN, PY2, TYPE_CHECKING, unicode
+from .__init__ import ANYWIN, OPENBSD, PY2, TYPE_CHECKING, UNIX, unicode
 from .cert import gencert
-from .stolen.qrcodegen import QrCode
+from .qrkode import QrCode, qr2png, qr2svg, qr2txt, qrgen
 from .util import (
     E_ACCESS,
     E_ADDR_IN_USE,
     E_ADDR_NOT_AVAIL,
     E_UNREACH,
     HAVE_IPV6,
+    IP6_LL,
     IP6ALL,
     VF_CAREFUL,
     Netdev,
     atomic_move,
+    chkcmd,
+    get_adapters,
+    list_nics,
     min_ex,
     sunpack,
     termsize,
 )
 
-if True:
-    from typing import Generator, Union
+if True:  # pylint: disable=using-constant-test
+    from typing import Generator, Optional, Union
 
 if TYPE_CHECKING:
     from .svchub import SvcHub
@@ -58,6 +62,7 @@ class TcpSrv(object):
         self.stopping = False
         self.srv: list[socket.socket] = []
         self.bound: list[tuple[str, int]] = []
+        self.seen_eps: list[tuple[str, int]] = []  # also skipped by uds-only
         self.netdevs: dict[str, Netdev] = {}
         self.netlist = ""
         self.nsrv = 0
@@ -140,12 +145,12 @@ class TcpSrv(object):
         # keep IPv6 LL-only nics
         ll_ok: set[str] = set()
         for ip, nd in self.netdevs.items():
-            if not ip.startswith("fe80"):
+            if not ip.startswith(IP6_LL):
                 continue
 
             just_ll = True
             for ip2, nd2 in self.netdevs.items():
-                if nd == nd2 and ":" in ip2 and not ip2.startswith("fe80"):
+                if nd == nd2 and ":" in ip2 and not ip2.startswith(IP6_LL):
                     just_ll = False
 
             if just_ll or self.args.ll:
@@ -164,7 +169,7 @@ class TcpSrv(object):
         title_vars = [x[1:] for x in self.args.wintitle.split(" ") if x.startswith("$")]
         t = "available @ {}://{}:{}/  (\033[33m{}\033[0m)"
         for ip, desc in sorted(eps.items(), key=lambda x: x[1]):
-            if ip.startswith("fe80") and ip not in ll_ok:
+            if ip.startswith(IP6_LL) and ip not in ll_ok:
                 continue
 
             for port in sorted(self.args.p):
@@ -245,8 +250,10 @@ class TcpSrv(object):
 
     def _listen(self, ip: str, port: int) -> None:
         uds_perm = uds_gid = -1
+        bound: Optional[socket.socket] = None
+        tcp = False
+
         if "unix:" in ip:
-            tcp = False
             ipv = socket.AF_UNIX
             uds = ip.split(":")
             ip = uds[-1]
@@ -259,7 +266,12 @@ class TcpSrv(object):
                     import grp
 
                     uds_gid = grp.getgrnam(uds[2]).gr_gid
+        elif "fd:" in ip:
+            fd = ip[3:]
+            bound = socket.socket(fileno=int(fd))
 
+            tcp = bound.proto == socket.IPPROTO_TCP
+            ipv = bound.family
         elif ":" in ip:
             tcp = True
             ipv = socket.AF_INET6
@@ -267,7 +279,7 @@ class TcpSrv(object):
             tcp = True
             ipv = socket.AF_INET
 
-        srv = socket.socket(ipv, socket.SOCK_STREAM)
+        srv = bound or socket.socket(ipv, socket.SOCK_STREAM)
 
         if not ANYWIN or self.args.reuseaddr:
             srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -285,14 +297,25 @@ class TcpSrv(object):
         if getattr(self.args, "freebind", False):
             srv.setsockopt(socket.SOL_IP, socket.IP_FREEBIND, 1)
 
+        if bound:
+            self.srv.append(srv)
+            return
+
         try:
             if tcp:
+                if self.args.http_no_tcp:
+                    self.seen_eps.append((ip, port))
+                    return
                 srv.bind((ip, port))
             else:
                 if ANYWIN or self.args.rm_sck:
                     if os.path.exists(ip):
                         os.unlink(ip)
                     srv.bind(ip)
+                    if uds_gid != -1:
+                        os.chown(ip, -1, uds_gid)
+                    if uds_perm != -1:
+                        os.chmod(ip, uds_perm)
                 else:
                     tf = "%s.%d" % (ip, os.getpid())
                     if os.path.exists(tf):
@@ -393,6 +416,7 @@ class TcpSrv(object):
 
         self.srv = srvs
         self.bound = bound
+        self.seen_eps = list(set(self.seen_eps + bound))
         self.nsrv = len(srvs)
         self._distribute_netdevs()
 
@@ -400,6 +424,7 @@ class TcpSrv(object):
         self.hub.broker.say("httpsrv.set_netdevs", self.netdevs)
         self.hub.start_zeroconf()
         gencert(self.log, self.args, self.netdevs)
+        self.hub.restart_sftpd()
         self.hub.restart_ftpd()
         self.hub.restart_tftpd()
 
@@ -435,27 +460,9 @@ class TcpSrv(object):
             self._distribute_netdevs()
 
     def detect_interfaces(self, listen_ips: list[str]) -> dict[str, Netdev]:
-        from .stolen.ifaddr import get_adapters
+        listen_ips = [x for x in listen_ips if not x.startswith(("unix:", "fd:"))]
 
-        listen_ips = [x for x in listen_ips if "unix:" not in x]
-
-        nics = get_adapters(True)
-        eps: dict[str, Netdev] = {}
-        for nic in nics:
-            for nip in nic.ips:
-                ipa = nip.ip[0] if ":" in str(nip.ip) else nip.ip
-                sip = "{}/{}".format(ipa, nip.network_prefix)
-                nd = Netdev(sip, nic.index or 0, nic.nice_name, "")
-                eps[sip] = nd
-                try:
-                    idx = socket.if_nametoindex(nd.name)
-                    if idx and idx != nd.idx:
-                        t = "netdev idx mismatch; ifaddr={} cpython={}"
-                        self.log("tcpsrv", t.format(nd.idx, idx), 3)
-                        nd.idx = idx
-                except:
-                    pass
-
+        eps = list_nics()
         netlist = str(sorted(eps.items()))
         if netlist == self.netlist and self.netdevs:
             return {}
@@ -489,6 +496,13 @@ class TcpSrv(object):
         return eps
 
     def _extdevs_nix(self) -> Generator[str, None, None]:
+        if UNIX:
+            so, _ = chkcmd(["netstat", "-nrf", "inet"])
+            for ln in so.split("\n"):
+                if not ln.startswith("default"):
+                    continue
+                yield ln.split()[7] if OPENBSD else ln.split()[3]
+            return
         with open("/proc/net/route", "rb") as f:
             next(f)
             for ln in f:
@@ -583,8 +597,7 @@ class TcpSrv(object):
         if not ip:
             return ""
 
-        if ":" in ip:
-            ip = "[{}]".format(ip)
+        hip = "[%s]" % (ip,) if ":" in ip else ip
 
         if self.args.http_only:
             https = ""
@@ -596,7 +609,7 @@ class TcpSrv(object):
         ports = t1.get(ip, t2.get(ip, []))
         dport = 443 if https else 80
         port = "" if dport in ports or not ports else ":{}".format(ports[0])
-        txt = "http{}://{}{}/{}".format(https, ip, port, self.args.qrl)
+        txt = "http{}://{}{}/{}".format(https, hip, port, self.args.qrl)
 
         btxt = txt.encode("utf-8")
         if PY2:
@@ -604,9 +617,17 @@ class TcpSrv(object):
 
         fg = self.args.qr_fg
         bg = self.args.qr_bg
+        nocolor = fg == -1
+        if nocolor:
+            fg = 0
+
         pad = self.args.qrp
         zoom = self.args.qrz
-        qrc = QrCode.encode_binary(btxt)
+        qrc = qrgen(btxt)
+
+        for zs in self.args.qr_file or []:
+            self._qr2file(qrc, zs)
+
         if zoom == 0:
             try:
                 tw, th = termsize()
@@ -615,13 +636,15 @@ class TcpSrv(object):
             except:
                 zoom = 1
 
-        qr = qrc.render(zoom, pad)
+        qr = qr2txt(qrc, zoom, pad)
         if self.args.no_ansi:
             return "{}\n{}".format(txt, qr)
 
         halfc = "\033[40;48;5;{0}m{1}\033[47;48;5;{2}m"
         if not fg:
             halfc = "\033[0;40m{1}\033[0;47m"
+        if nocolor:
+            halfc = "\033[0;7m{1}\033[0m"
 
         def ansify(m: re.Match) -> str:
             return halfc.format(fg, " " * len(m.group(1)), bg)
@@ -631,6 +654,8 @@ class TcpSrv(object):
 
         qr = qr.replace("\n", "\033[K\n") + "\033[K"  # win10do
         cc = " \033[0;38;5;{0};47;48;5;{1}m" if fg else " \033[0;30;47m"
+        if nocolor:
+            cc = " \033[0m"
         t = cc + "\n{2}\033[999G\033[0m\033[J"
         t = t.format(fg, bg, qr)
         if ANYWIN:
@@ -638,3 +663,29 @@ class TcpSrv(object):
             t = t.replace("\n", "`\n`")
 
         return txt + t
+
+    def _qr2file(self, qrc: QrCode, txt: str):
+        if ".txt:" in txt or ".svg:" in txt:
+            ap, zs1, zs2 = txt.rsplit(":", 2)
+            bg = fg = ""
+        else:
+            ap, zs1, zs2, bg, fg = txt.rsplit(":", 4)
+        zoom = int(zs1)
+        pad = int(zs2)
+
+        if ap.endswith(".txt"):
+            if zoom not in (1, 2):
+                raise Exception("invalid zoom for qr.txt; must be 1 or 2")
+            with open(ap, "wb") as f:
+                f.write(qr2txt(qrc, zoom, pad).encode("utf-8"))
+        elif ap.endswith(".svg"):
+            with open(ap, "wb") as f:
+                f.write(qr2svg(qrc, pad).encode("utf-8"))
+        else:
+            qr2png(qrc, zoom, pad, self._h2i(bg), self._h2i(fg), ap)
+
+    def _h2i(self, hs):
+        try:
+            return tuple(int(hs[i : i + 2], 16) for i in (0, 2, 4))
+        except:
+            return None

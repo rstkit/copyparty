@@ -1,16 +1,20 @@
-<!DOCTYPE html><html><head>
+<!DOCTYPE html>
+<html lang="en" id="ht_md">
+
+<head>
 	<meta charset="utf-8">
 	<title>📝 {{ title }}</title>
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=0.7">
 	<meta name="theme-color" content="#{{ tcolor }}">
-	<link rel="stylesheet" href="{{ r }}/.cpr/ui.css?_={{ ts }}">
-	<link rel="stylesheet" href="{{ r }}/.cpr/md.css?_={{ ts }}">
+	<link rel="stylesheet" href="{{ r }}/.cpr/w/ui.css?_={{ ts }}">
+	<link rel="stylesheet" href="{{ r }}/.cpr/w/md.css?_={{ ts }}">
 	{%- if edit %}
-	<link rel="stylesheet" href="{{ r }}/.cpr/md2.css?_={{ ts }}">
+	<link rel="stylesheet" href="{{ r }}/.cpr/w/md2.css?_={{ ts }}">
 	{%- endif %}
 {{ html_head }}
 </head>
+
 <body>
 	<div id="mn"></div>
 	<div id="mh">
@@ -22,7 +26,8 @@
 			<a id="nsbs" href="#" tt="switch between editor and preview$NHotkey: ctrl-e">editor</a>
 			<div id="toolsbox">
 				<a id="tools" href="#">tools</a>
-				<a id="fmt_table" href="#">prettify table (ctrl-k)</a>
+				<a id="fmt_table" href="#">beautify table (ctrl-k)</a>
+				<a id="fmt_json" href="#">beautify json (ctrl-j)</a>
 				<a id="iter_uni" href="#">non-ascii: iterate (ctrl-u)</a>
 				<a id="mark_uni" href="#">non-ascii: markup</a>
 				<a id="cfg_uni" href="#">non-ascii: whitelist</a>
@@ -130,7 +135,8 @@ write markdown (most html is 🙆 too)
 
 var SR = "{{ r }}",
 	last_modified = {{ lastmod }},
-	have_emp = {{ "true" if have_emp else "false" }},
+	have_emp = {{ have_emp }},
+	md_no_br = {{ md_no_br }},
 	dfavico = "{{ favico }}";
 
 var md_opt = {
@@ -153,14 +159,23 @@ try { l.light = drk? 0:1; } catch (ex) { }
 })();
 
 	</script>
-	<script src="{{ r }}/.cpr/util.js?_={{ ts }}"></script>
-	<script src="{{ r }}/.cpr/deps/marked.js?_={{ ts }}"></script>
-	<script src="{{ r }}/.cpr/md.js?_={{ ts }}"></script>
+	<script src="{{ r }}/.cpr/w/util.js?_={{ ts }}"></script>
+	<script src="{{ r }}/.cpr/w/deps/marked.js?_={{ ts }}"></script>
+	<script src="{{ r }}/.cpr/w/md.js?_={{ ts }}"></script>
 	{%- if edit %}
-	<script src="{{ r }}/.cpr/md2.js?_={{ ts }}"></script>
+	<script src="{{ r }}/.cpr/w/md2.js?_={{ ts }}"></script>
 	{%- endif %}
+	<script>
+		Date.now();function jsldp(a,b){2!=window[a]&&alert("FATAL ERROR: cannot load "+b+".js due to unreliable network or broken reverse-proxy; try CTRL-SHIFT-R")}
+		jsldp("J_UTL","util");
+		jsldp("J_MD","md");
+		{%- if edit %}
+		jsldp("J_MD2","md2");
+		{%- endif %}
+	</script>
 	{%- if js %}
 	<script src="{{ js }}_={{ ts }}"></script>
 	{%- endif %}
-</body></html>
+</body>
+</html>
 

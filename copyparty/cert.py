@@ -2,6 +2,7 @@ import calendar
 import errno
 import json
 import os
+import shutil
 import time
 
 from .__init__ import ANYWIN
@@ -17,6 +18,19 @@ if ANYWIN:
     VF = {"mv_re_t": 5, "rm_re_t": 5, "mv_re_r": 0.1, "rm_re_r": 0.1}
 else:
     VF = {"mv_re_t": 0, "rm_re_t": 0}
+
+
+def _sp_err(exe, what, rc, so, se, sin):
+    try:
+        zs = shutil.which(exe)
+    except:
+        zs = "<?>"
+    try:
+        zi = os.path.getsize(zs)
+    except:
+        zi = 0
+    t = "failed to %s; error %s using %s (%s):\n  STDOUT: %s\n  STDERR: %s\n  STDIN: %s\n"
+    raise Exception(t % (what, rc, zs, zi, so, se, sin.decode("utf-8")))
 
 
 def ensure_cert(log: "RootLogger", args) -> None:
@@ -37,9 +51,12 @@ def ensure_cert(log: "RootLogger", args) -> None:
         with open(args.cert, "wb") as f:
             f.write(cert_insec)
 
+    if args.certkey and not os.path.isfile(args.certkey):
+        raise Exception("certificate-key file does not exist: " + args.certkey)
+
     with open(args.cert, "rb") as f:
         buf = f.read()
-        o1 = buf.find(b" PRIVATE KEY-")
+        o1 = buf.find(b" PRIVATE KEY-") if not args.certkey else 0
         o2 = buf.find(b" CERTIFICATE-")
         m = "unsupported certificate format: "
         if o1 < 0:
@@ -107,13 +124,13 @@ def _gen_ca(log: "RootLogger", args):
     cmd = "cfssl gencert -initca -"
     rc, so, se = runcmd(cmd.split(), 30, sin=sin)
     if rc:
-        raise Exception("failed to create ca-cert: {}, {}".format(rc, se), 3)
+        _sp_err("cfssl", "create ca-cert", rc, so, se, sin)
 
     cmd = "cfssljson -bare ca"
     sin = so.encode("utf-8")
     rc, so, se = runcmd(cmd.split(), 10, sin=sin, cwd=args.crt_dir)
     if rc:
-        raise Exception("failed to translate ca-cert: {}, {}".format(rc, se), 3)
+        _sp_err("cfssljson", "translate ca-cert", rc, so, se, sin)
 
     bname = os.path.join(args.crt_dir, "ca")
     try:
@@ -130,6 +147,7 @@ def _gen_srv(log: "RootLogger", args, netdevs: dict[str, Netdev]):
     nlog: "NamedLogger" = lambda msg, c=0: log("cert-gen-srv", msg, c)
 
     names = args.crt_ns.split(",") if args.crt_ns else []
+    names = [x.strip() for x in names]
     if not args.crt_exact:
         for n in names[:]:
             names.append("*.{}".format(n))
@@ -200,13 +218,13 @@ def _gen_srv(log: "RootLogger", args, netdevs: dict[str, Netdev]):
     acmd = cmd.split() + ["-hostname=" + ",".join(names), "-"]
     rc, so, se = runcmd(acmd, 30, sin=sin, cwd=args.crt_dir)
     if rc:
-        raise Exception("failed to create cert: {}, {}".format(rc, se))
+        _sp_err("cfssl", "create cert", rc, so, se, sin)
 
     cmd = "cfssljson -bare srv"
     sin = so.encode("utf-8")
     rc, so, se = runcmd(cmd.split(), 10, sin=sin, cwd=args.crt_dir)
     if rc:
-        raise Exception("failed to translate cert: {}, {}".format(rc, se))
+        _sp_err("cfssljson", "translate cert", rc, so, se, sin)
 
     bname = os.path.join(args.crt_dir, "srv")
     try:
@@ -237,7 +255,7 @@ def gencert(log: "RootLogger", args, netdevs: dict[str, Netdev]):
     if args.http_only:
         return
 
-    if args.no_crt or not HAVE_CFSSL:
+    if args.no_crt or args.certkey or not HAVE_CFSSL:
         ensure_cert(log, args)
         return
 

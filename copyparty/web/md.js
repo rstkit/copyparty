@@ -1,5 +1,6 @@
 "use strict";
 
+var J_MD = 1;
 var dom_toc = ebi('toc'),
     dom_wrap = ebi('mw'),
     dom_hbar = ebi('mh'),
@@ -201,7 +202,7 @@ function convert_markdown(md_text, dest_dom) {
 
     var marked_opts = {
         //headerPrefix: 'h-',
-        breaks: true,
+        breaks: !md_no_br,
         gfm: true
     };
 
@@ -217,7 +218,7 @@ function convert_markdown(md_text, dest_dom) {
     catch (ex) {
         if (IE) {
             dest_dom.innerHTML = 'IE cannot into markdown ;_;';
-            return;
+            return false;
         }
 
         if (ext)
@@ -238,6 +239,12 @@ function convert_markdown(md_text, dest_dom) {
     for (var a = nodes.length - 1; a >= 0; a--) {
         var href = nodes[a].getAttribute('href');
         var txt = nodes[a].innerHTML;
+
+        if (/\.[Mm][Dd]$/.test(href)) {
+            var o = new URL(href, location.href).origin;
+            if (!o || o == location.origin)
+                nodes[a].href = href + '?v';
+        }
 
         if (!txt)
             nodes[a].textContent = href;
@@ -344,6 +351,8 @@ function convert_markdown(md_text, dest_dom) {
             }
             catch (ex) { }
         }, 1);
+    
+    return true;
 }
 
 
@@ -422,7 +431,7 @@ function init_toc() {
         }
     }
 
-    // hilight the correct toc items + scroll into view
+    // highlight the correct toc items + scroll into view
     function freshen_toclist() {
         if (anchors.length == 0)
             return;
@@ -516,3 +525,5 @@ if (sread('hidenav') == 1)
 
 if (window.tt && tt.init)
     tt.init();
+
+J_MD = 2;

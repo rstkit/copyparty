@@ -1,10 +1,14 @@
 "use strict";
 
-var XHR = XMLHttpRequest,
-	img_re = /\.(a?png|avif|bmp|gif|heif|jpe?g|jfif|svg|webp|webm|mkv|mp4|m4v|mov)(\?|$)/i;
+var J_BRW = 1;
 
-var Ls = {
-	"eng": {
+if (window.dgauto === undefined)
+	alert('FATAL ERROR: receiving stale data from the server; this may be due to a broken reverse-proxy (stuck cache). Try restarting copyparty and press CTRL-SHIFT-R in the browser');
+
+var XHR = XMLHttpRequest;
+
+if (1)
+	Ls.eng = {
 		"tt": "English",
 
 		"cols": {
@@ -24,7 +28,7 @@ var Ls = {
 			"resw": "horizontal resolution",
 			"resh": "vertical resolution",
 			"chs": "audio channels",
-			"hz": "sample rate"
+			"hz": "sample rate",
 		},
 
 		"hks": [
@@ -87,6 +91,8 @@ var Ls = {
 				["M", "close textfile"],
 				["E", "edit textfile"],
 				["S", "select file (for cut/copy/rename)"],
+				["Y", "download textfile"],
+				["⇧ J", "beautify json"],
 			]
 		],
 
@@ -112,13 +118,14 @@ var Ls = {
 		"gou": 'parent folder">up',
 		"gon": 'next folder">next',
 		"logout": "Logout ",
+		"login": "Login",
 		"access": " access",
 		"ot_close": "close submenu",
-		"ot_search": "search for files by attributes, path / name, music tags, or any combination of those$N$N&lt;code&gt;foo bar&lt;/code&gt; = must contain both «foo» and «bar»,$N&lt;code&gt;foo -bar&lt;/code&gt; = must contain «foo» but not «bar»,$N&lt;code&gt;^yana .opus$&lt;/code&gt; = start with «yana» and be an «opus» file$N&lt;code&gt;&quot;try unite&quot;&lt;/code&gt; = contain exactly «try unite»$N$Nthe date format is iso-8601, like$N&lt;code&gt;2009-12-31&lt;/code&gt; or &lt;code&gt;2020-09-12 23:30:00&lt;/code&gt;",
+		"ot_search": "`search for files by attributes, path / name, music tags, or any combination of those$N$N`foo bar` = must contain both «foo» and «bar»,$N`foo -bar` = must contain «foo» but not «bar»,$N`^yana .opus$` = start with «yana» and be an «opus» file$N`&quot;try unite&quot;` = contain exactly «try unite»$N$Nthe date format is iso-8601, like$N`2009-12-31` or `2020-09-12 23:30:00`",
 		"ot_unpost": "unpost: delete your recent uploads, or abort unfinished ones",
 		"ot_bup": "bup: basic uploader, even supports netscape 4.0",
 		"ot_mkdir": "mkdir: create a new directory",
-		"ot_md": "new-md: create a new markdown document",
+		"ot_md": "new-file: create a new textfile",
 		"ot_msg": "msg: send a message to the server log",
 		"ot_mp": "media player options",
 		"ot_cfg": "configuration options",
@@ -127,7 +134,7 @@ var Ls = {
 		"ot_noie": 'Please use Chrome / Firefox / Edge',
 
 		"ab_mkdir": "make directory",
-		"ab_mkdoc": "new markdown doc",
+		"ab_mkdoc": "new textfile",
 		"ab_msg": "send msg to srv log",
 
 		"ay_path": "skip to folders",
@@ -155,7 +162,7 @@ var Ls = {
 		"ul_par": "parallel uploads:",
 		"ut_rand": "randomize filenames",
 		"ut_u2ts": "copy the last-modified timestamp$Nfrom your filesystem to the server\">📅",
-		"ut_ow": "overwrite existing files on the server?$N🛡️: never (will generate a new filename instead)$N🕒: overwrite if server-file is older than yours$N♻️: always overwrite if the files are different",
+		"ut_ow": "overwrite existing files on the server?$N🛡️: never (will generate a new filename instead)$N🕒: overwrite if server-file is older than yours$N♻️: always overwrite if the files are different$N⏭️: unconditionally skip all existing files",
 		"ut_mt": "continue hashing other files while uploading$N$Nmaybe disable if your CPU or HDD is a bottleneck",
 		"ut_ask": 'ask for confirmation before upload starts">💭',
 		"ut_pot": "improve upload speed on slow devices$Nby making the UI less complex",
@@ -206,6 +213,7 @@ var Ls = {
 		"u_nav_b": '<a href="#" id="modal-ok">Files</a><a href="#" id="modal-ng">One folder</a>',
 
 		"cl_opts": "switches",
+		"cl_hfsz": "filesize",
 		"cl_themes": "theme",
 		"cl_langs": "language",
 		"cl_ziptype": "folder download",
@@ -219,16 +227,21 @@ var Ls = {
 		"cl_reset": "reset",
 		"cl_hpick": "tap on column headers to hide in the table below",
 		"cl_hcancel": "column hiding aborted",
+		"cl_rcm": "right-click menu",
+		"cl_gauto": "autogrid",
 
 		"ct_grid": '田 the grid',
 		"ct_ttips": '◔ ◡ ◔">ℹ️ tooltips',
 		"ct_thumb": 'in grid-view, toggle icons or thumbnails$NHotkey: T">🖼️ thumbs',
 		"ct_csel": 'use CTRL and SHIFT for file selection in grid-view">sel',
+		"ct_dsel": 'use drag-selection in grid-view">dsel',
+		"ct_dl": 'force download (don\'t display inline) when a file is clicked">dl',
 		"ct_ihop": 'when the image viewer is closed, scroll down to the last viewed file">g⮯',
 		"ct_dots": 'show hidden files (if server permits)">dotfiles',
 		"ct_qdel": 'when deleting files, only ask for confirmation once">qdel',
 		"ct_dir1st": 'sort folders before files">📁 first',
 		"ct_nsort": 'natural sort (for filenames with leading digits)">nsort',
+		"ct_utc": 'show all datetimes in UTC">UTC',
 		"ct_readme": 'show README.md in folder listings">📜 readme',
 		"ct_idxh": 'show index.html instead of folder listing">htm',
 		"ct_sbars": 'show scrollbars">⟊',
@@ -258,7 +271,9 @@ var Ls = {
 
 		"cdt_lim": "max number of files to show in a folder",
 		"cdt_ask": "when scrolling to the bottom,$Ninstead of loading more files,$Nask what to do",
-		"cdt_hsort": "how many sorting rules (&lt;code&gt;,sorthref&lt;/code&gt;) to include in media-URLs. Setting this to 0 will also ignore sorting-rules included in media links when clicking them",
+		"cdt_hsort": "`how many sorting rules (`,sorthref`) to include in media-URLs. Setting this to 0 will also ignore sorting-rules included in media links when clicking them",
+		"cdt_ren": "enable custom right-click menu, you can still access the regular menu by pressing the shift key and right-clicking\">enable",
+		"cdt_rdb": "show the regular right-click menu when the custom one is already open and right-clicking again\">double",
 
 		"tt_entree": "show navpane (directory tree sidebar)$NHotkey: B",
 		"tt_detree": "show breadcrumbs$NHotkey: B",
@@ -268,6 +283,8 @@ var Ls = {
 		"tt_dynt": "autogrow as tree expands",
 		"tt_wrap": "word wrap",
 		"tt_hover": "reveal overflowing lines on hover$N( breaks scrolling unless mouse $N&nbsp; cursor is in the left gutter )",
+		"tt_gauto": "display as grid or list depending on folder contents",
+		"tt_gathr": "use grid if this percentage of files are pics/vids",
 
 		"ml_pmode": "at end of folder...",
 		"ml_btns": "cmds",
@@ -276,6 +293,7 @@ var Ls = {
 		"ml_tint": "tint",
 		"ml_eq": "audio equalizer",
 		"ml_drc": "dynamic range compressor",
+		"ml_ss": "skip silence",
 
 		"mt_loop": "loop/repeat one song\">🔁",
 		"mt_one": "stop after one song\">1️⃣",
@@ -297,20 +315,27 @@ var Ls = {
 		"mt_mloop": "loop the open folder\">🔁 loop",
 		"mt_mnext": "load the next folder and continue\">📂 next",
 		"mt_mstop": "stop playback\">⏸ stop",
-		"mt_cflac": "convert flac / wav to opus\">flac",
-		"mt_caac": "convert aac / m4a to opus\">aac",
-		"mt_coth": "convert all others (not mp3) to opus\">oth",
+		"mt_cflac": "convert flac / wav to {0}\">flac",
+		"mt_caac": "convert aac / m4a to {0}\">aac",
+		"mt_coth": "convert all others (not mp3) to {0}\">oth",
 		"mt_c2opus": "best choice for desktops, laptops, android\">opus",
 		"mt_c2owa": "opus-weba, for iOS 17.5 and newer\">owa",
 		"mt_c2caf": "opus-caf, for iOS 11 through 17\">caf",
 		"mt_c2mp3": "use this on very old devices\">mp3",
+		"mt_c2flac": "best sound quality, but huge downloads\">flac",
+		"mt_c2wav": "uncompressed playback (even bigger)\">wav",
 		"mt_c2ok": "nice, good choice",
 		"mt_c2nd": "that's not the recommended output format for your device, but that's fine",
 		"mt_c2ng": "your device does not seem to support this output format, but let's try anyways",
 		"mt_xowa": "there are bugs in iOS preventing background playback using this format; please use caf or mp3 instead",
 		"mt_tint": "background level (0-100) on the seekbar$Nto make buffering less distracting",
-		"mt_eq": "enables the equalizer and gain control;$N$Nboost &lt;code&gt;0&lt;/code&gt; = standard 100% volume (unmodified)$N$Nwidth &lt;code&gt;1 &nbsp;&lt;/code&gt; = standard stereo (unmodified)$Nwidth &lt;code&gt;0.5&lt;/code&gt; = 50% left-right crossfeed$Nwidth &lt;code&gt;0 &nbsp;&lt;/code&gt; = mono$N$Nboost &lt;code&gt;-0.8&lt;/code&gt; &amp; width &lt;code&gt;10&lt;/code&gt; = vocal removal :^)$N$Nenabling the equalizer makes gapless albums fully gapless, so leave it on with all the values at zero (except width = 1) if you care about that",
-		"mt_drc": "enables the dynamic range compressor (volume flattener / brickwaller); will also enable EQ to balance the spaghetti, so set all EQ fields except for 'width' to 0 if you don't want it$N$Nlowers the volume of audio above THRESHOLD dB; for every RATIO dB past THRESHOLD there is 1 dB of output, so default values of tresh -24 and ratio 12 means it should never get louder than -22 dB and it is safe to increase the equalizer boost to 0.8, or even 1.8 with ATK 0 and a huge RLS like 90 (only works in firefox; RLS is max 1 in other browsers)$N$N(see wikipedia, they explain it much better)",
+		"mt_eq": "`enables the equalizer and gain control;$N$Nboost `0` = standard 100% volume (unmodified)$N$Nwidth `1 &nbsp;` = standard stereo (unmodified)$Nwidth `0.5` = 50% left-right crossfeed$Nwidth `0 &nbsp;` = mono$N$Nboost `-0.8` &amp; width `10` = vocal removal :^)$N$Nenabling the equalizer makes gapless albums fully gapless, so leave it on with all the values at zero (except width = 1) if you care about that",
+		"mt_drc": "enables the dynamic range compressor (volume flattener / brickwaller); will also enable EQ to balance the spaghetti, so set all EQ fields except for 'width' to 0 if you don't want it$N$Nlowers the volume of audio above THRESHOLD dB; for every RATIO dB past THRESHOLD there is 1 dB of output, so default values of 'tresh' -24 and 'ratio' 12 means it should never get louder than -22 dB and it is safe to increase the equalizer boost to 0.8, or even 1.8 with ATK 0 and a huge RLS like 90 (only works in firefox; RLS is max 1 in other browsers)$N$N(see wikipedia, they explain it much better)",
+		"mt_ss": "`enables skip-silence; multiplies playback speed by `ffwd` near the start/end of songs when volume is under `vol` and the playback position is within the first `start`% or the last `end`% of the track",
+		"mt_ssvt": "volume threshold (0-255)\">vol",
+		"mt_ssts": "active threshold (% of track, start)\">start",
+		"mt_sste": "active threshold (% of track, end)\">end",
+		"mt_sssm": "playback speed multiplier (range: 0.15 to 8)\">ffwd",
 
 		"mb_play": "play",
 		"mm_hashplay": "play this audio file?",
@@ -327,6 +352,7 @@ var Ls = {
 		"mm_eunk": "Unknown Errol",
 		"mm_e404": "Could not play audio; error 404: File not found.",
 		"mm_e403": "Could not play audio; error 403: Access denied.\n\nTry pressing F5 to reload, maybe you got logged out",
+		"mm_e415": "Could not play audio; error 415: File transcoding failed; check server logs.",
 		"mm_e500": "Could not play audio; error 500: Check server logs.",
 		"mm_e5xx": "Could not play audio; server error ",
 		"mm_nof": "not finding any more audio files nearby",
@@ -346,6 +372,7 @@ var Ls = {
 		"f_anota": "only {0} of the {1} items were selected;\nto select the full folder, first scroll to the bottom",
 
 		"f_dls": 'the file links in the current folder have\nbeen changed into download links',
+		"f_dl_nd": 'skipping folder (use zip/tar download instead):\n',
 
 		"f_partial": "To safely download a file which is currently being uploaded, please click the file which has the same filename, but without the <code>.PARTIAL</code> file extension. Please press CANCEL or Escape to do this.\n\nPressing OK / Enter will ignore this warning and continue downloading the <code>.PARTIAL</code> scratchfile instead, which will almost definitely give you corrupted data.",
 
@@ -387,8 +414,8 @@ var Ls = {
 		"fr_case": "case-sensitive regex\">case",
 		"fr_win": "windows-safe names; replace <code>&lt;&gt;:&quot;\\|?*</code> with japanese fullwidth characters\">win",
 		"fr_slash": "replace <code>/</code> with a character that doesn't cause new folders to be created\">no /",
-		"fr_re": "regex search pattern to apply to original filenames; capturing groups can be referenced in the format field below like &lt;code&gt;(1)&lt;/code&gt; and &lt;code&gt;(2)&lt;/code&gt; and so on",
-		"fr_fmt": "inspired by foobar2000:$N&lt;code&gt;(title)&lt;/code&gt; is replaced by song title,$N&lt;code&gt;[(artist) - ](title)&lt;/code&gt; skips [this] part if artist is blank$N&lt;code&gt;$lpad((tn),2,0)&lt;/code&gt; pads tracknumber to 2 digits",
+		"fr_re": "`regex search pattern to apply to original filenames; capturing groups can be referenced in the format field below like `(1)` and `(2)` and so on",
+		"fr_fmt": "`inspired by foobar2000:$N`(title)` is replaced by song title,$N`[(artist) - ](title)` skips [this] part if artist is blank$N`$lpad((tn),2,0)` pads tracknumber to 2 digits",
 		"fr_pdel": "delete",
 		"fr_pnew": "save as",
 		"fr_pname": "provide a name for your new preset",
@@ -414,14 +441,16 @@ var Ls = {
 		"fcc_warn": 'copied {0} items to clipboard\n\nbut: only <b>this</b> browser-tab can paste them\n(since the selection is so absolutely massive)',
 
 		"fp_apply": "use these names",
+		"fp_skip": "skip conflicts",  // TLNote: "skip existing names" (filenames taken in target folder)
 		"fp_ecut": "first cut or copy some files / folders to paste / move\n\nnote: you can cut / paste across different browser tabs",
-		"fp_ename": "{0} items cannot be moved here because the names are already taken. Give them new names below to continue, or blank the name to skip them:",
-		"fcp_ename": "{0} items cannot be copied here because the names are already taken. Give them new names below to continue, or blank the name to skip them:",
+		"fp_ename": "{0} items cannot be moved here because the names are already taken. Give them new names below to continue, or blank the name (\"skip conflicts\") to skip them:",
+		"fcp_ename": "{0} items cannot be copied here because the names are already taken. Give them new names below to continue, or blank the name (\"skip conflicts\") to skip them:",
 		"fp_emore": "there are still some filename collisions left to fix",
 		"fp_ok": "move OK",
 		"fcp_ok": "copy OK",
 		"fp_busy": "moving {0} items...\n\n{1}",
 		"fcp_busy": "copying {0} items...\n\n{1}",
+		"fp_abrt": "aborting...",
 		"fp_err": "move failed:\n",
 		"fcp_err": "copy failed:\n",
 		"fp_confirm": "move these {0} items here?",
@@ -434,6 +463,8 @@ var Ls = {
 		"fcp_both_b": '<a href="#" id="modal-ok">Copy</a><a href="#" id="modal-ng">Upload</a>',
 
 		"mk_noname": "type a name into the text field on the left before you do that :p",
+		"nmd_i1": "also add the file extension you want, for example <code>.md</code>",
+		"nmd_i2": "you can only create <code>.{0}</code> files because you don't have the delete-permission",
 
 		"tv_load": "Loading text document:\n\n{0}\n\n{1}% ({2} of {3} MiB loaded)",
 		"tv_xe1": "could not load textfile:\n\nerror ",
@@ -444,6 +475,7 @@ var Ls = {
 		"tvt_prev": "show previous document$NHotkey: i\">⬆ prev",
 		"tvt_next": "show next document$NHotkey: K\">⬇ next",
 		"tvt_sel": "select file &nbsp; ( for cut / copy / delete / ... )$NHotkey: S\">sel",
+		"tvt_j": "beautify json$NHotkey: shift-J\">j",
 		"tvt_edit": "open file in text editor$NHotkey: E\">✏️ edit",
 		"tvt_tail": "monitor file for changes; show new lines in real time\">📡 follow",
 		"tvt_wrap": "word-wrap\">↵",
@@ -628,1292 +660,139 @@ var Ls = {
 		"ur_um": "Finished;\n{0} uploads OK,\n{1} uploads failed, sorry",
 		"ur_sm": "Finished;\n{0} files found on server,\n{1} files NOT found on server",
 
+		"rc_opn": "open",
+		"rc_ply": "play",
+		"rc_pla": "play as audio",
+		"rc_txt": "open in textfile viewer",
+		"rc_md": "open in markdown viewer",
+		"rc_dl": "download",
+		"rc_zip": "download as archive",
+		"rc_cpl": "copy link",
+		"rc_del": "delete",
+		"rc_cut": "cut",
+		"rc_cpy": "copy",
+		"rc_pst": "paste",
+		"rc_rnm": "rename",
+		"rc_nfo": "new folder",
+		"rc_nfi": "new file",
+		"rc_sal": "select all",
+		"rc_sin": "invert selection",
+		"rc_shf": "share this folder",
+		"rc_shs": "share selection",
+
 		"lang_set": "refresh to make the change take effect?",
-	},
-	"nor": {
-		"tt": "Norsk",
-
-		"cols": {
-			"c": "handlingsknapper",
-			"dur": "varighet",
-			"q": "kvalitet / bitrate",
-			"Ac": "lyd-format",
-			"Vc": "video-format",
-			"Fmt": "format / innpakning",
-			"Ahash": "lyd-kontrollsum",
-			"Vhash": "video-kontrollsum",
-			"Res": "oppløsning",
-			"T": "filtype",
-			"aq": "lydkvalitet / bitrate",
-			"vq": "videokvalitet / bitrate",
-			"pixfmt": "fargekoding / detaljenivå",
-			"resw": "horisontal oppløsning",
-			"resh": "vertikal oppløsning",
-			"chs": "lydkanaler",
-			"hz": "lyd-oppløsning"
-		},
-
-		"hks": [
-			[
-				"ymse",
-				["ESC", "lukk saker og ting"],
-
-				"filbehandler",
-				["G", "listevisning eller ikoner"],
-				["T", "miniatyrbilder på/av"],
-				["⇧ A/D", "ikonstørrelse"],
-				["ctrl-K", "slett valgte"],
-				["ctrl-X", "klipp ut valgte"],
-				["ctrl-C", "kopiér til utklippstavle"],
-				["ctrl-V", "lim inn (flytt/kopiér)"],
-				["Y", "last ned valgte"],
-				["F2", "endre navn på valgte"],
-
-				"filmarkering",
-				["space", "marker fil"],
-				["↑/↓", "flytt markør"],
-				["ctrl ↑/↓", "flytt markør og scroll"],
-				["⇧ ↑/↓", "velg forr./neste fil"],
-				["ctrl-A", "velg alle filer / mapper"],
-			], [
-				"navigering",
-				["B", "mappehierarki eller filsti"],
-				["I/K", "forr./neste mappe"],
-				["M", "ett nivå opp (eller lukk)"],
-				["V", "vis mapper eller tekstfiler"],
-				["A/D", "panelstørrelse"],
-			], [
-				"musikkspiller",
-				["J/L", "forr./neste sang"],
-				["U/O", "hopp 10sek bak/frem"],
-				["0..9", "hopp til 0%..90%"],
-				["P", "pause, eller start / fortsett"],
-				["S", "marker spillende sang"],
-				["Y", "last ned sang"],
-			], [
-				"bildeviser",
-				["J/L, ←/→", "forr./neste bilde"],
-				["Home/End", "første/siste bilde"],
-				["F", "fullskjermvisning"],
-				["R", "rotere mot høyre"],
-				["⇧ R", "rotere mot venstre"],
-				["S", "marker bilde"],
-				["Y", "last ned bilde"],
-			], [
-				"videospiller",
-				["U/O", "hopp 10sek bak/frem"],
-				["P/K/Space", "pause / fortsett"],
-				["C", "fortsett til neste fil"],
-				["V", "gjenta avspilling"],
-				["M", "lyd av/på"],
-				["[ og ]", "gjentaksintervall"],
-			], [
-				"dokumentviser",
-				["I/K", "forr./neste fil"],
-				["M", "lukk tekstdokument"],
-				["E", "rediger tekstdokument"],
-				["S", "marker fil (for F2/ctrl-x/...)"],
-				["Y", "last ned tekstfil"],
-			]
-		],
-
-		"m_ok": "OK",
-		"m_ng": "Avbryt",
-
-		"enable": "Aktiv",
-		"danger": "VARSKU",
-		"clipped": "kopiert til utklippstavlen",
-
-		"ht_s1": "sekund",
-		"ht_s2": "sekunder",
-		"ht_m1": "minutt",
-		"ht_m2": "minutter",
-		"ht_h1": "time",
-		"ht_h2": "timer",
-		"ht_d1": "dag",
-		"ht_d2": "dager",
-		"ht_and": " og ",
-
-		"goh": "kontrollpanel",
-		"gop": 'naviger til mappen før denne">forr.',
-		"gou": 'naviger ett nivå opp">opp',
-		"gon": 'naviger til mappen etter denne">neste',
-		"logout": "Logg ut ",
-		"access": " tilgang",
-		"ot_close": "lukk verktøy",
-		"ot_search": "søk etter filer ved å angi filnavn, mappenavn, tid, størrelse, eller metadata som sangtittel / artist / osv.$N$N&lt;code&gt;foo bar&lt;/code&gt; = inneholder både «foo» og «bar»,$N&lt;code&gt;foo -bar&lt;/code&gt; = inneholder «foo» men ikke «bar»,$N&lt;code&gt;^yana .opus$&lt;/code&gt; = starter med «yana», filtype «opus»$N&lt;code&gt;&quot;try unite&quot;&lt;/code&gt; = «try unite» eksakt$N$Ndatoformat er iso-8601, så f.eks.$N&lt;code&gt;2009-12-31&lt;/code&gt; eller &lt;code&gt;2020-09-12 23:30:00&lt;/code&gt;",
-		"ot_unpost": "unpost: slett filer som du nylig har lastet opp; «angre-knappen»",
-		"ot_bup": "bup: tradisjonell / primitiv filopplastning,$N$Nfungerer i omtrent samtlige nettlesere",
-		"ot_mkdir": "mkdir: lag en ny mappe",
-		"ot_md": "new-md: lag et nytt markdown-dokument",
-		"ot_msg": "msg: send en beskjed til serverloggen",
-		"ot_mp": "musikkspiller-instillinger",
-		"ot_cfg": "andre innstillinger",
-		"ot_u2i": 'up2k: last opp filer (hvis du har skrivetilgang) eller bytt til søkemodus for å sjekke om filene finnes et-eller-annet sted på serveren$N$Nopplastninger kan gjenopptas etter avbrudd, skjer stykkevis for potensielt høyere ytelse, og ivaretar datostempling -- men bruker litt mer prosessorkraft enn [🎈]&nbsp; (den primitive opplasteren "bup")<br /><br />mens opplastninger foregår så vises fremdriften her oppe!',
-		"ot_u2w": 'up2k: filopplastning med støtte for å gjenoppta avbrutte opplastninger -- steng ned nettleseren og dra de samme filene inn i nettleseren igjen for å plukke opp igjen der du slapp$N$Nopplastninger skjer stykkevis for potensielt høyere ytelse, og ivaretar datostempling -- men bruker litt mer prosessorkraft enn [🎈]&nbsp; (den primitive opplasteren "bup")<br /><br />mens opplastninger foregår så vises fremdriften her oppe!',
-		"ot_noie": 'Fungerer mye bedre i Chrome / Firefox / Edge',
-
-		"ab_mkdir": "lag mappe",
-		"ab_mkdoc": "nytt dokument",
-		"ab_msg": "send melding",
-
-		"ay_path": "gå videre til mapper",
-		"ay_files": "gå videre til filer",
-
-		"wt_ren": "gi nye navn til de valgte filene$NSnarvei: F2",
-		"wt_del": "slett de valgte filene$NSnarvei: ctrl-K",
-		"wt_cut": "klipp ut de valgte filene &lt;small&gt;(for å lime inn et annet sted)&lt;/small&gt;$NSnarvei: ctrl-X",
-		"wt_cpy": "kopiér de valgte filene til utklippstavlen$N(for å lime inn et annet sted)$NSnarvei: ctrl-C",
-		"wt_pst": "lim inn filer (som tidligere ble klippet ut / kopiert et annet sted)$NSnarvei: ctrl-V",
-		"wt_selall": "velg alle filer$NSnarvei: ctrl-A (mens fokus er på en fil)",
-		"wt_selinv": "inverter utvalg",
-		"wt_zip1": "last ned denne mappen som et arkiv",
-		"wt_selzip": "last ned de valgte filene som et arkiv",
-		"wt_seldl": "last ned de valgte filene$NSnarvei: Y",
-		"wt_npirc": "kopiér sang-info (irc-formatert)",
-		"wt_nptxt": "kopiér sang-info",
-		"wt_m3ua": "legg til sang i m3u-spilleliste$N(husk å klikke på <code>📻copy</code> senere)",
-		"wt_m3uc": "kopiér m3u-spillelisten til utklippstavlen",
-		"wt_grid": "bytt mellom ikoner og listevisning$NSnarvei: G",
-		"wt_prev": "forrige sang$NSnarvei: J",
-		"wt_play": "play / pause$NSnarvei: P",
-		"wt_next": "neste sang$NSnarvei: L",
-
-		"ul_par": "samtidige handl.:",
-		"ut_rand": "finn opp nye tilfeldige filnavn",
-		"ut_u2ts": "gi filen på serveren samme$Ntidsstempel som lokalt hos deg\">📅",
-		"ut_ow": "overskrive eksisterende filer på serveren?$N🛡️: aldri (finner på et nytt filnavn istedenfor)$N🕒: overskriv hvis serverens fil er eldre$N♻️: alltid, gitt at innholdet er forskjellig",
-		"ut_mt": "fortsett å befare køen mens opplastning foregår$N$Nskru denne av dersom du har en$Ntreg prosessor eller harddisk",
-		"ut_ask": 'bekreft filutvalg før opplastning starter">💭',
-		"ut_pot": "forbedre ytelsen på trege enheter ved å$Nforenkle brukergrensesnittet",
-		"ut_srch": "utfør søk istedenfor å laste opp --$Nleter igjennom alle mappene du har lov til å se",
-		"ut_par": "sett til 0 for å midlertidig stanse opplastning$N$Nhøye verdier (4 eller 8) kan gi bedre ytelse,$Nspesielt på trege internettlinjer$N$Nbør ikke være høyere enn 1 på LAN$Neller hvis serveren sin harddisk er treg",
-		"ul_btn": "slipp filer / mapper<br>her (eller klikk meg)",
-		"ul_btnu": "L A S T &nbsp; O P P",
-		"ul_btns": "F I L S Ø K",
-
-		"ul_hash": "befar",
-		"ul_send": "&nbsp;send",
-		"ul_done": "total",
-		"ul_idle1": "ingen handlinger i køen",
-		"ut_etah": "snitthastighet for &lt;em&gt;befaring&lt;/em&gt; samt gjenstående tid",
-		"ut_etau": "snitthastighet for &lt;em&gt;opplastning&lt;/em&gt; samt gjenstående tid",
-		"ut_etat": "&lt;em&gt;total&lt;/em&gt; snitthastighet og gjenstående tid",
-
-		"uct_ok": "fullført uten problemer",
-		"uct_ng": "fullført under tvil (duplikat, ikke funnet, ...)",
-		"uct_done": "fullført (enten &lt;em&gt;ok&lt;/em&gt; eller &lt;em&gt;ng&lt;/em&gt;)",
-		"uct_bz": "aktive handlinger (befaring / opplastning)",
-		"uct_q": "køen",
-
-		"utl_name": "filnavn",
-		"utl_ulist": "vis",
-		"utl_ucopy": "kopiér",
-		"utl_links": "lenker",
-		"utl_stat": "status",
-		"utl_prog": "fremdrift",
-
-		// må være korte:
-		"utl_404": "404",
-		"utl_err": "FEIL!",
-		"utl_oserr": "OS-feil",
-		"utl_found": "funnet",
-		"utl_defer": "senere",
-		"utl_yolo": "YOLO",
-		"utl_done": "ferdig",
-
-		"ul_flagblk": "filene har blitt lagt i køen</b><br>men det er en annen nettleserfane som holder på med befaring eller opplastning akkurat nå,<br>så venter til den er ferdig først",
-		"ul_btnlk": "bryteren har blitt låst til denne tilstanden i serverens konfigurasjon",
-
-		"udt_up": "Last opp",
-		"udt_srch": "Søk",
-		"udt_drop": "Slipp filene her",
-
-		"u_nav_m": '<h6>hva har du?</h6><code>Enter</code> = Filer (én eller flere)\n<code>ESC</code> = Én mappe (inkludert undermapper)',
-		"u_nav_b": '<a href="#" id="modal-ok">Filer</a><a href="#" id="modal-ng">Én mappe</a>',
-
-		"cl_opts": "brytere",
-		"cl_themes": "utseende",
-		"cl_langs": "språk",
-		"cl_ziptype": "nedlastning av mapper",
-		"cl_uopts": "up2k-brytere",
-		"cl_favico": "favicon",
-		"cl_bigdir": "store mapper",
-		"cl_hsort": "#sort",
-		"cl_keytype": "notasjon for musikalsk dur",
-		"cl_hiddenc": "skjulte kolonner",
-		"cl_hidec": "skjul",
-		"cl_reset": "nullstill",
-		"cl_hpick": "klikk på overskriften til kolonnene du ønsker å skjule i tabellen nedenfor",
-		"cl_hcancel": "kolonne-skjuling avbrutt",
-
-		"ct_grid": '田 ikoner',
-		"ct_ttips": 'hvis hjelpetekst ved å holde musen over ting">ℹ️ tips',
-		"ct_thumb": 'vis miniatyrbilder istedenfor ikoner$NSnarvei: T">🖼️ bilder',
-		"ct_csel": 'bruk tastene CTRL og SHIFT for markering av filer i ikonvisning">merk',
-		"ct_ihop": 'bla ned til sist viste bilde når bildeviseren lukkes">g⮯',
-		"ct_dots": 'vis skjulte filer (gitt at serveren tillater det)">.synlig',
-		"ct_qdel": 'sletteknappen spør bare én gang om bekreftelse">hurtig🗑️',
-		"ct_dir1st": 'sorter slik at mapper kommer foran filer">📁 først',
-		"ct_nsort": 'naturlig sortering (forstår tall i filnavn)">nsort',
-		"ct_readme": 'vis README.md nedenfor filene">📜 readme',
-		"ct_idxh": 'vis index.html istedenfor fil-liste">htm',
-		"ct_sbars": 'vis rullgardiner / skrollefelt">⟊',
-
-		"cut_umod": 'i tilfelle en fil du laster opp allerede finnes på serveren, så skal serverens tidsstempel oppdateres slik at det stemmer overens med din lokale fil (krever rettighetene write+delete)">re📅',
-
-		"cut_turbo": "forenklet befaring ved opplastning; bør sannsynlig <em>ikke</em> skrus på:$N$Nnyttig dersom du var midt i en svær opplastning som måtte restartes av en eller annen grunn, og du vil komme igang igjen så raskt som overhodet mulig.$N$Nnår denne er skrudd på så forenkles befaringen kraftig; istedenfor å utføre en trygg sjekk på om filene finnes på serveren i god stand, så sjekkes kun om <em>filstørrelsen</em> stemmer. Så dersom en korrupt fil skulle befinne seg på serveren allerede, på samme sted med samme størrelse og navn, så blir det <em>ikke oppdaget</em>.$N$Ndet anbefales å kun benytte denne funksjonen for å komme seg raskt igjennom selve opplastningen, for så å skru den av, og til slutt &quot;laste opp&quot; de samme filene én gang til -- slik at integriteten kan verifiseres\">turbo",
-
-		"cut_datechk": "har ingen effekt dersom turbo er avslått$N$Ngjør turbo bittelitt tryggere ved å sjekke datostemplingen på filene (i tillegg til filstørrelse)$N$N<em>burde</em> oppdage og gjenoppta de fleste ufullstendige opplastninger, men er <em>ikke</em> en fullverdig erstatning for å deaktivere turbo og gjøre en skikkelig sjekk\">date-chk",
-
-		"cut_u2sz": "størrelse i megabyte for hvert bruddstykke for opplastning. Store verdier flyr bedre over atlanteren. Små verdier kan være bedre på særdeles ustabile forbindelser",
-
-		"cut_flag": "samkjører nettleserfaner slik at bare én $N kan holde på med befaring / opplastning $N -- andre faner må også ha denne skrudd på $N -- fungerer kun innenfor samme domene",
-
-		"cut_az": "last opp filer i alfabetisk rekkefølge, istedenfor minste-fil-først$N$Nalfabetisk kan gjøre det lettere å anslå om alt gikk bra, men er bittelitt tregere på fiber / LAN",
-
-		"cut_nag": "meldingsvarsel når opplastning er ferdig$N(kun on nettleserfanen ikke er synlig)",
-		"cut_sfx": "lydvarsel når opplastning er ferdig$N(kun on nettleserfanen ikke er synlig)",
-
-		"cut_mt": "raskere befaring ved å bruke hele CPU'en$N$Ndenne funksjonen anvender web-workers$Nog krever mer RAM (opptil 512 MiB ekstra)$N$Ngjør https 30% raskere, http 4.5x raskere\">mt",
-
-		"cut_wasm": "bruk wasm istedenfor nettleserens sha512-funksjon; gir bedre ytelse på chrome-baserte nettlesere, men bruker mere CPU, og eldre versjoner av chrome tåler det ikke (spiser opp all RAM og krasjer)\">wasm",
-
-		"cft_text": "ikontekst (blank ut og last siden på nytt for å deaktivere)",
-		"cft_fg": "farge",
-		"cft_bg": "bakgrunnsfarge",
-
-		"cdt_lim": "maks antall filer å vise per mappe",
-		"cdt_ask": "vis knapper for å laste flere filer nederst på siden istedenfor å gradvis laste mer av mappen når man scroller ned",
-		"cdt_hsort": "antall sorterings-regler (&lt;code&gt;,sorthref&lt;/code&gt;) som skal inkluderes når media-URL'er genereres. Hvis denne er 0 så vil sorterings-regler i URL'er hverken bli generert eller lest",
-
-		"tt_entree": "bytt til mappehierarki$NSnarvei: B",
-		"tt_detree": "bytt til tradisjonell sti-visning$NSnarvei: B",
-		"tt_visdir": "bla ned til den åpne mappen",
-		"tt_ftree": "bytt mellom filstruktur og tekstfiler$NSnarvei: V",
-		"tt_pdock": "vis de overordnede mappene i et panel",
-		"tt_dynt": "øk bredden på panelet ettersom treet utvider seg",
-		"tt_wrap": "linjebryting",
-		"tt_hover": "vis hele mappenavnet når musepekeren treffer mappen$N( gjør dessverre at scrollhjulet fusker dersom musepekeren ikke befinner seg i grøfta )",
-
-		"ml_pmode": "ved enden av mappen",
-		"ml_btns": "knapper",
-		"ml_tcode": "konvertering",
-		"ml_tcode2": "konverter til",
-		"ml_tint": "tint",
-		"ml_eq": "audio equalizer (tonejustering)",
-		"ml_drc": "compressor (volum-utjevning)",
-
-		"mt_loop": "spill den samme sangen om og om igjen\">🔁",
-		"mt_one": "spill kun én sang\">1️⃣",
-		"mt_shuf": "sangene i hver mappe$Nspilles i tilfeldig rekkefølge\">🔀",
-		"mt_aplay": "forsøk å starte avspilling hvis linken du klikket på for å åpne nettsiden inneholder en sang-ID$N$Nhvis denne deaktiveres så vil heller ikke nettside-URLen bli oppdatert med sang-ID'er når musikk spilles, i tilfelle innstillingene skulle gå tapt og nettsiden lastes på ny\">a▶",
-		"mt_preload": "hent ned litt av neste sang i forkant,$Nslik at pausen i overgangen blir mindre\">forles",
-		"mt_prescan": "ved behov, bla til neste mappe$Nslik at nettleseren lar oss$Nfortsette å spille musikk\">bla",
-		"mt_fullpre": "hent ned hele neste sang, ikke bare litt:$N✅ skru på hvis nettet ditt er <b>ustabilt</b>,$N❌ skru av hvis nettet ditt er <b>tregt</b>\">full",
-		"mt_fau": "for telefoner: forhindre at avspilling stopper hvis nettet er for tregt til å laste neste sang i tide. Hvis påskrudd, kan forårsake at sang-info ikke vises korrekt i OS'et\">☕️",
-		"mt_waves": "waveform seekbar:$Nvis volumkurve i avspillingsfeltet\">~s",
-		"mt_npclip": "vis knapper for å kopiere info om sangen du hører på\">/np",
-		"mt_m3u_c": "vis knapper for å kopiere de valgte$Nsangene som innslag i en m3u8 spilleliste\">📻",
-		"mt_octl": "integrering med operativsystemet (fjernkontroll, info-skjerm)\">os-ctl",
-		"mt_oseek": "tillat spoling med fjernkontroll$N$Nmerk: på noen enheter (iPhones) så vil$Ndette erstatte knappen for neste sang\">spoling",
-		"mt_oscv": "vis album-cover på infoskjermen\">bilde",
-		"mt_follow": "bla slik at sangen som spilles alltid er synlig\">🎯",
-		"mt_compact": "tettpakket avspillerpanel\">⟎",
-		"mt_uncache": "prøv denne hvis en sang ikke spiller riktig\">oppfrisk",
-		"mt_mloop": "repeter hele mappen\">🔁 gjenta",
-		"mt_mnext": "hopp til neste mappe og fortsett\">📂 neste",
-		"mt_mstop": "stopp avspilling\">⏸ stopp",
-		"mt_cflac": "konverter flac / wav-filer til opus\">flac",
-		"mt_caac": "konverter aac / m4a-filer til to opus\">aac",
-		"mt_coth": "konverter alt annet (men ikke mp3) til opus\">andre",
-		"mt_c2opus": "det beste valget for alle PCer og Android\">opus",
-		"mt_c2owa": "opus-weba, for iOS 17.5 og nyere\">owa",
-		"mt_c2caf": "opus-caf, for iOS 11 tilogmed 17\">caf",
-		"mt_c2mp3": "bra valg for steinalder-utstyr (slår aldri feil)\">mp3",
-		"mt_c2ok": "bra valg!",
-		"mt_c2nd": "ikke det foretrukne valget for din enhet, men funker sikkert greit",
-		"mt_c2ng": "ser virkelig ikke ut som enheten din takler dette formatet... men ok, vi prøver",
-		"mt_xowa": "iOS har fortsatt problemer med avspilling av owa-musikk i bakgrunnen. Bruk caf eller mp3 istedenfor",
-		"mt_tint": "nivå av bakgrunnsfarge på søkestripa (0-100),$Ngjør oppdateringer mindre distraherende",
-		"mt_eq": "aktiver tonekontroll og forsterker;$N$Nboost &lt;code&gt;0&lt;/code&gt; = normal volumskala$N$Nwidth &lt;code&gt;1 &nbsp;&lt;/code&gt; = normal stereo$Nwidth &lt;code&gt;0.5&lt;/code&gt; = 50% blanding venstre-høyre$Nwidth &lt;code&gt;0 &nbsp;&lt;/code&gt; = mono$N$Nboost &lt;code&gt;-0.8&lt;/code&gt; &amp; width &lt;code&gt;10&lt;/code&gt; = instrumental :^)$N$Nreduserer også dødtid imellom sangfiler",
-		"mt_drc": "aktiver volum-utjevning (dynamic range compressor); vil også aktivere tonejustering, så sett alle EQ-feltene bortsett fra 'width' til 0 hvis du ikke vil ha noe EQ$N$Nfilteret vil dempe volumet på alt som er høyere enn TRESH dB; for hver RATIO dB over grensen er det 1dB som treffer høyttalerne, så standardverdiene tresh -24 og ratio 12 skal bety at volumet ikke går høyere enn -22 dB, slik at man trygt kan øke boost-verdien i equalizer'n til rundt 0.8, eller 1.8 kombinert med ATK 0 og RLS 90 (bare mulig i firefox; andre nettlesere tar ikke høyere RLS enn 1)$N$Nwikipedia forklarer dette mye bedre forresten",
-
-		"mb_play": "lytt",
-		"mm_hashplay": "spill denne sangen?",
-		"mm_m3u": "trykk <code>Enter/OK</code> for å spille\ntrykk <code>ESC/Avbryt</code> for å redigere",
-		"mp_breq": "krever firefox 82+, chrome 73+, eller iOS 15+",
-		"mm_bload": "laster inn...",
-		"mm_bconv": "konverterer til {0}, vent litt...",
-		"mm_opusen": "nettleseren din forstår ikke aac / m4a;\nkonvertering til opus er nå aktivert",
-		"mm_playerr": "avspilling feilet: ",
-		"mm_eabrt": "Avspillingsforespørselen ble avbrutt",
-		"mm_enet": "Nettet ditt er ustabilt",
-		"mm_edec": "Noe er galt med musikkfilen",
-		"mm_esupp": "Nettleseren din forstår ikke filtypen",
-		"mm_eunk": "Ukjent feil",
-		"mm_e404": "Avspilling feilet: Fil ikke funnet.",
-		"mm_e403": "Avspilling feilet: Tilgang nektet.\n\nKanskje du ble logget ut?\nPrøv å trykk F5 for å laste siden på nytt.",
-		"mm_e500": "Avspilling feilet: Rusk i maskineriet, sjekk serverloggen.",
-		"mm_e5xx": "Avspilling feilet: ",
-		"mm_nof": "finner ikke flere sanger i nærheten",
-		"mm_prescan": "Leter etter neste sang...",
-		"mm_scank": "Fant neste sang:",
-		"mm_uncache": "alle sanger vil lastes på nytt ved neste avspilling",
-		"mm_hnf": "sangen finnes ikke lenger",
-
-		"im_hnf": "bildet finnes ikke lenger",
-
-		"f_empty": 'denne mappen er tom',
-		"f_chide": 'dette vil skjule kolonnen «{0}»\n\nfanen for "andre innstillinger" lar deg vise kolonnen igjen',
-		"f_bigtxt": "denne filen er hele {0} MiB -- vis som tekst?",
-		"f_bigtxt2": "vil du se bunnen av filen istedenfor? du vil da også se nye linjer som blir lagt til på slutten av filen i sanntid",
-		"fbd_more": '<div id="blazy">viser <code>{0}</code> av <code>{1}</code> filer; <a href="#" id="bd_more">vis {2}</a> eller <a href="#" id="bd_all">vis alle</a></div>',
-		"fbd_all": '<div id="blazy">viser <code>{0}</code> av <code>{1}</code> filer; <a href="#" id="bd_all">vis alle</a></div>',
-		"f_anota": "kun {0} av totalt {1} elementer ble markert;\nfor å velge alt må du bla til bunnen av mappen først",
-
-		"f_dls": 'linkene i denne mappen er nå\nomgjort til nedlastningsknapper',
-
-		"f_partial": "For å laste ned en fil som enda ikke er ferdig opplastet, klikk på filen som har samme filnavn som denne, men uten <code>.PARTIAL</code> på slutten. Da vil serveren passe på at nedlastning går bra. Derfor anbefales det sterkt å trykke AVBRYT eller Escape-tasten.\n\nHvis du virkelig ønsker å laste ned denne <code>.PARTIAL</code>-filen på en ukontrollert måte, trykk OK / Enter for å ignorere denne advarselen. Slik vil du høyst sannsynlig motta korrupt data.",
-
-		"ft_paste": "Lim inn {0} filer$NSnarvei: ctrl-V",
-		"fr_eperm": 'kan ikke endre navn:\ndu har ikke “move”-rettigheten i denne mappen',
-		"fd_eperm": 'kan ikke slette:\ndu har ikke “delete”-rettigheten i denne mappen',
-		"fc_eperm": 'kan ikke klippe ut:\ndu har ikke “move”-rettigheten i denne mappen',
-		"fp_eperm": 'kan ikke lime inn:\ndu har ikke “write”-rettigheten i denne mappen',
-		"fr_emore": "velg minst én fil som skal få nytt navn",
-		"fd_emore": "velg minst én fil som skal slettes",
-		"fc_emore": "velg minst én fil som skal klippes ut",
-		"fcp_emore": "velg minst én fil som skal kopieres til utklippstavlen",
-
-		"fs_sc": "del mappen du er i nå",
-		"fs_ss": "del de valgte filene",
-		"fs_just1d": "du kan ikke markere flere mapper samtidig,\neller kombinere mapper og filer",
-		"fs_abrt": "❌ avbryt",
-		"fs_rand": "🎲 tilfeldig navn",
-		"fs_go": "✅ opprett deling",
-		"fs_name": "navn",
-		"fs_src": "kilde",
-		"fs_pwd": "passord",
-		"fs_exp": "varighet",
-		"fs_tmin": "min",
-		"fs_thrs": "timer",
-		"fs_tdays": "dager",
-		"fs_never": "for evig",
-		"fs_pname": "frivillig navn (blir noe tilfeldig ellers)",
-		"fs_tsrc": "fil/mappe som skal deles",
-		"fs_ppwd": "frivillig passord",
-		"fs_w8": "oppretter deling...",
-		"fs_ok": "trykk <code>Enter/OK</code> for å kopiere linken (for CTRL-V)\ntrykk <code>ESC/Avbryt</code> for å bare bekrefte",
-
-		"frt_dec": "kan korrigere visse ødelagte filnavn\">url-decode",
-		"frt_rst": "nullstiller endringer (tilbake til de originale filnavnene)\">↺ reset",
-		"frt_abrt": "avbryt og lukk dette vinduet\">❌ avbryt",
-		"frb_apply": "IVERKSETT",
-		"fr_adv": "automasjon basert på metadata<br>og / eller mønster (regulære uttrykk)\">avansert",
-		"fr_case": "versalfølsomme uttrykk\">Aa",
-		"fr_win": "bytt ut bokstavene <code>&lt;&gt;:&quot;\\|?*</code> med$Ntilsvarende som windows ikke får panikk av\">win",
-		"fr_slash": "bytt ut bokstaven <code>/</code> slik at den ikke forårsaker at nye mapper opprettes\">ikke /",
-		"fr_re": "regex-mønster som kjøres på hvert filnavn. Grupper kan leses ut i format-feltet nedenfor, f.eks. &lt;code&gt;(1)&lt;/code&gt; og &lt;code&gt;(2)&lt;/code&gt; osv.",
-		"fr_fmt": "inspirert av foobar2000:$N&lt;code&gt;(title)&lt;/code&gt; byttes ut med sangtittel,$N&lt;code&gt;[(artist) - ](title)&lt;/code&gt; dropper [dette] hvis artist er blank$N&lt;code&gt;$lpad((tn),2,0)&lt;/code&gt; viser sangnr. med 2 siffer",
-		"fr_pdel": "slett",
-		"fr_pnew": "lagre som",
-		"fr_pname": "gi innstillingene dine et navn",
-		"fr_aborted": "avbrutt",
-		"fr_lold": "gammelt navn",
-		"fr_lnew": "nytt navn",
-		"fr_tags": "metadata for de valgte filene (kun for referanse):",
-		"fr_busy": "endrer navn på {0} filer...\n\n{1}",
-		"fr_efail": "endring av navn feilet:\n",
-		"fr_nchg": "{0} av navnene ble justert pga. <code>win</code> og/eller <code>ikke /</code>\n\nvil du fortsette med de nye navnene som ble valgt?",
-
-		"fd_ok": "sletting OK",
-		"fd_err": "sletting feilet:\n",
-		"fd_none": "ingenting ble slettet; kanskje avvist av serverkonfigurasjon (xbd)?",
-		"fd_busy": "sletter {0} filer...\n\n{1}",
-		"fd_warn1": "SLETT disse {0} filene?",
-		"fd_warn2": "<b>Siste sjanse!</b> Dette kan ikke angres. Slett?",
-
-		"fc_ok": "klippet ut {0} filer",
-		"fc_warn": 'klippet ut {0} filer\n\nmen: kun <b>denne</b> nettleserfanen har mulighet til å lime dem inn et annet sted, siden antallet filer er helt hinsides',
-
-		"fcc_ok": "kopierte {0} filer til utklippstavlen",
-		"fcc_warn": 'kopierte {0} filer til utklippstavlen\n\nmen: kun <b>denne</b> nettleserfanen har mulighet til å lime dem inn et annet sted, siden antallet filer er helt hinsides',
-
-		"fp_apply": "bekreft og lim inn nå",
-		"fp_ecut": "du må klippe ut eller kopiere noen filer / mapper først\n\nmerk: du kan gjerne jobbe på kryss av nettleserfaner; klippe ut i én fane, lime inn i en annen",
-		"fp_ename": "{0} filer kan ikke flyttes til målmappen fordi det allerede finnes filer med samme navn. Gi dem nye navn nedenfor, eller gi dem et blankt navn for å hoppe over dem:",
-		"fcp_ename": "{0} filer kan ikke kopieres til målmappen fordi det allerede finnes filer med samme navn. Gi dem nye navn nedenfor, eller gi dem et blankt navn for å hoppe over dem:",
-		"fp_emore": "det er fortsatt flere navn som må endres",
-		"fp_ok": "flytting OK",
-		"fcp_ok": "kopiering OK",
-		"fp_busy": "flytter {0} filer...\n\n{1}",
-		"fcp_busy": "kopierer {0} filer...\n\n{1}",
-		"fp_err": "flytting feilet:\n",
-		"fcp_err": "kopiering feilet:\n",
-		"fp_confirm": "flytt disse {0} filene hit?",
-		"fcp_confirm": "kopiér disse {0} filene hit?",
-		"fp_etab": 'kunne ikke lese listen med filer ifra den andre nettleserfanen',
-		"fp_name": "Laster opp én fil fra enheten din. Velg filnavn:",
-		"fp_both_m": '<h6>hva skal limes inn her?</h6><code>Enter</code> = Flytt {0} filer fra «{1}»\n<code>ESC</code> = Last opp {2} filer fra enheten din',
-		"fcp_both_m": '<h6>hva skal limes inn her?</h6><code>Enter</code> = Kopiér {0} filer fra «{1}»\n<code>ESC</code> = Last opp {2} filer fra enheten din',
-		"fp_both_b": '<a href="#" id="modal-ok">Flytt</a><a href="#" id="modal-ng">Last opp</a>',
-		"fcp_both_b": '<a href="#" id="modal-ok">Kopiér</a><a href="#" id="modal-ng">Last opp</a>',
-
-		"mk_noname": "skriv inn et navn i tekstboksen til venstre først :p",
-
-		"tv_load": "Laster inn tekstfil:\n\n{0}\n\n{1}% ({2} av {3} MiB lastet ned)",
-		"tv_xe1": "kunne ikke laste tekstfil:\n\nfeil ",
-		"tv_xe2": "404, Fil ikke funnet",
-		"tv_lst": "tekstfiler i mappen",
-		"tvt_close": "gå tilbake til mappen$NSnarvei: M (eller Esc)\">❌ lukk",
-		"tvt_dl": "last ned denne filen$NSnarvei: Y\">💾 last ned",
-		"tvt_prev": "vis forrige dokument$NSnarvei: i\">⬆ forr.",
-		"tvt_next": "vis neste dokument$NSnarvei: K\">⬇ neste",
-		"tvt_sel": "markér filen &nbsp; ( for utklipp / sletting / ... )$NSnarvei: S\">merk",
-		"tvt_edit": "redigér filen$NSnarvei: E\">✏️ endre",
-		"tvt_tail": "overvåk filen for endringer og vis nye linjer i sanntid\">📡 følg",
-		"tvt_wrap": "tekstbryting\">↵",
-		"tvt_atail": "hold de nyeste linjene synlig (lås til bunnen av siden)\">⚓",
-		"tvt_ctail": "forstå og vis terminalfarger (ansi-sekvenser)\">🌈",
-		"tvt_ntail": "maks-grense for antall bokstaver som skal vises i vinduet",
-
-		"m3u_add1": "sangen ble lagt til i m3u-spillelisten",
-		"m3u_addn": "{0} sanger ble lagt til i m3u-spillelisten",
-		"m3u_clip": "m3u-spillelisten ble kopiert til utklippstavlen\n\nneste steg er å opprette et tekstdokument med filnavn som slutter på <code>.m3u</code> og lime inn spillelisten der",
-
-		"gt_vau": "ikke vis videofiler, bare spill lyden\">🎧",
-		"gt_msel": "markér filer istedenfor å åpne dem; ctrl-klikk filer for å overstyre$N$N&lt;em&gt;når aktiv: dobbelklikk en fil / mappe for å åpne&lt;/em&gt;$N$NSnarvei: S\">markering",
-		"gt_crop": "beskjær ikonene så de passer bedre\">✂",
-		"gt_3x": "høyere oppløsning på ikoner\">3x",
-		"gt_zoom": "zoom",
-		"gt_chop": "trim",
-		"gt_sort": "sorter",
-		"gt_name": "navn",
-		"gt_sz": "størr.",
-		"gt_ts": "dato",
-		"gt_ext": "type",
-		"gt_c1": "reduser maks-lengde på filnavn",
-		"gt_c2": "øk maks-lengde på filnavn",
-
-		"sm_w8": "søker...",
-		"sm_prev": "søkeresultatene er fra et tidligere søk:\n  ",
-		"sl_close": "lukk søkeresultater",
-		"sl_hits": "viser {0} treff",
-		"sl_moar": "hent flere",
-
-		"s_sz": "størr.",
-		"s_dt": "dato",
-		"s_rd": "sti",
-		"s_fn": "navn",
-		"s_ta": "meta",
-		"s_ua": "up@",
-		"s_ad": "avns.",
-		"s_s1": "større enn ↓ MiB",
-		"s_s2": "mindre enn ↓ MiB",
-		"s_d1": "nyere enn &lt;dato&gt;",
-		"s_d2": "eldre enn",
-		"s_u1": "lastet opp etter",
-		"s_u2": "og/eller før",
-		"s_r1": "mappenavn inneholder",
-		"s_f1": "filnavn inneholder",
-		"s_t1": "sang-info inneholder",
-		"s_a1": "konkrete egenskaper",
-
-		"md_eshow": "viser forenklet ",
-		"md_off": "[📜<em>readme</em>] er avskrudd i [⚙️] -- dokument skjult",
-
-		"badreply": "Ugyldig svar ifra serveren",
-
-		"xhr403": "403: Tilgang nektet\n\nkanskje du ble logget ut? prøv å trykk F5",
-		"xhr0": "ukjent (enten nettverksproblemer eller serverkrasj)",
-		"cf_ok": "beklager -- liten tilfeldig kontroll, alt OK\n\nting skal fortsette om ca. 30 sekunder\n\nhvis ikkeno skjer, trykk F5 for å laste siden på nytt",
-		"tl_xe1": "kunne ikke hente undermapper:\n\nfeil ",
-		"tl_xe2": "404: Mappen finnes ikke",
-		"fl_xe1": "kunne ikke hente filer i mappen:\n\nfeil ",
-		"fl_xe2": "404: Mappen finnes ikke",
-		"fd_xe1": "kan ikke opprette ny mappe:\n\nfeil ",
-		"fd_xe2": "404: Den overordnede mappen finnes ikke",
-		"fsm_xe1": "kunne ikke sende melding:\n\nfeil ",
-		"fsm_xe2": "404: Den overordnede mappen finnes ikke",
-		"fu_xe1": "kunne ikke hente listen med nylig opplastede filer ifra serveren:\n\nfeil ",
-		"fu_xe2": "404: Filen finnes ikke??",
-
-		"fz_tar": "ukomprimert gnu-tar arkiv, for linux og mac",
-		"fz_pax": "ukomprimert pax-tar arkiv, litt tregere",
-		"fz_targz": "gnu-tar pakket med gzip (nivå 3)$N$NNB: denne er veldig treg;$Nukomprimert tar er bedre",
-		"fz_tarxz": "gnu-tar pakket med xz (nivå 1)$N$NNB: denne er veldig treg;$Nukomprimert tar er bedre",
-		"fz_zip8": "zip med filnavn i utf8 (noe problematisk på windows 7 og eldre)",
-		"fz_zipd": "zip med filnavn i cp437, for høggamle maskiner",
-		"fz_zipc": "cp437 med tidlig crc32,$Nfor MS-DOS PKZIP v2.04g (oktober 1993)$N(øker behandlingstid på server)",
-
-		"un_m1": "nedenfor kan du angre / slette filer som du nylig har lastet opp, eller avbryte ufullstendige opplastninger",
-		"un_upd": "oppdater",
-		"un_m4": "eller hvis du vil dele nedlastnings-lenkene:",
-		"un_ulist": "vis",
-		"un_ucopy": "kopiér",
-		"un_flt": "valgfritt filter:&nbsp; filnavn / filsti må inneholde",
-		"un_fclr": "nullstill filter",
-		"un_derr": 'unpost-sletting feilet:\n',
-		"un_f5": 'noe gikk galt, prøv å oppdatere listen eller trykk F5',
-		"un_uf5": "beklager, men du må laste siden på nytt (f.eks. ved å trykke F5 eller CTRL-R) før denne opplastningen kan avbrytes",
-		"un_nou": '<b>advarsel:</b> kan ikke vise ufullstendige opplastninger akkurat nå; klikk på oppdater-linken om litt',
-		"un_noc": '<b>advarsel:</b> angring av fullførte opplastninger er deaktivert i serverkonfigurasjonen',
-		"un_max": "viser de første 2000 filene (bruk filteret for å innsnevre)",
-		"un_avail": "{0} nylig opplastede filer kan slettes<br />{1} ufullstendige opplastninger kan avbrytes",
-		"un_m2": "sortert etter opplastningstid; nyeste først:",
-		"un_no1": "men nei, her var det jaggu ikkeno som slettes kan",
-		"un_no2": "men nei, her var det jaggu ingenting som passet overens med filteret",
-		"un_next": "slett de neste {0} filene nedenfor",
-		"un_abrt": "avbryt",
-		"un_del": "slett",
-		"un_m3": "henter listen med nylig opplastede filer...",
-		"un_busy": "sletter {0} filer...",
-		"un_clip": "{0} lenker kopiert til utklippstavlen",
-
-		"u_https1": "du burde",
-		"u_https2": "bytte til https",
-		"u_https3": "for høyere hastighet",
-		"u_ancient": 'nettleseren din er prehistorisk -- mulig du burde <a href="#" onclick="goto(\'bup\')">bruke bup istedenfor</a>',
-		"u_nowork": "krever firefox 53+, chrome 57+, eller iOS 11+",
-		"tail_2old": "krever firefox 105+, chrome 71+, eller iOS 14.5+",
-		"u_nodrop": 'nettleseren din er for gammel til å laste opp filer ved å dra dem inn i vinduet',
-		"u_notdir": "mottok ikke mappen!\n\nnettleseren din er for gammel,\nprøv å dra mappen inn i vinduet istedenfor",
-		"u_uri": "for å laste opp bilder ifra andre nettleservinduer,\nslipp bildet rett på den store last-opp-knappen",
-		"u_enpot": 'bytt til <a href="#">enkelt UI</a> (gir sannsynlig raskere opplastning)',
-		"u_depot": 'bytt til <a href="#">snæsent UI</a> (gir sannsynlig tregere opplastning)',
-		"u_gotpot": 'byttet til et enklere UI for å laste opp raskere,\n\ndu kan gjerne bytte tilbake altså!',
-		"u_pott": "<p>filer: &nbsp; <b>{0}</b> ferdig, &nbsp; <b>{1}</b> feilet, &nbsp; <b>{2}</b> behandles, &nbsp; <b>{3}</b> i kø</p>",
-		"u_ever": "dette er den primitive opplasteren; up2k krever minst:<br>chrome 21 // firefox 13 // edge 12 // opera 12 // safari 5.1",
-		"u_su2k": 'dette er den primitive opplasteren; <a href="#" id="u2yea">up2k</a> er bedre',
-		"u_uput": 'litt raskere (uten sha512)',
-		"u_ewrite": 'du har ikke skrivetilgang i denne mappen',
-		"u_eread": 'du har ikke lesetilgang i denne mappen',
-		"u_enoi": 'filsøk er deaktivert i serverkonfigurasjonen',
-		"u_enoow": "kan ikke overskrive filer her (Delete-rettigheten er nødvendig)",
-		"u_badf": 'Disse {0} filene (av totalt {1}) kan ikke leses, kanskje pga rettighetsproblemer i filsystemet på datamaskinen din:\n\n',
-		"u_blankf": 'Disse {0} filene (av totalt {1}) er blanke / uten innhold; ønsker du å laste dem opp uansett?\n\n',
-		"u_applef": 'Disse {0} filene (av totalt {1}) er antagelig uønskede;\nTrykk <code>OK/Enter</code> for å HOPPE OVER disse filene,\nTrykk <code>Avbryt/ESC</code> for å LASTE OPP disse filene også:\n\n',
-		"u_just1": '\nFunker kanskje bedre hvis du bare tar én fil om gangen',
-		"u_ff_many": 'Hvis du bruker <b>Linux / MacOS / Android,</b> så kan dette antallet filer<br /><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank"><em>kanskje</em> krasje Firefox!</a> Hvis det skjer, så prøv igjen (eller bruk Chrome).',
-		"u_up_life": "Filene slettes fra serveren {0}\netter at opplastningen er fullført",
-		"u_asku": 'Laste opp disse {0} filene til <code>{1}</code>',
-		"u_unpt": "Du kan angre / slette opplastningen med 🧯 oppe til venstre",
-		"u_bigtab": 'Vil nå vise {0} filer...\n\nDette kan krasje nettleseren din. Fortsette?',
-		"u_scan": 'Leser mappene...',
-		"u_dirstuck": 'Nettleseren din fikk ikke tilgang til å lese følgende {0} filer/mapper, så de blir hoppet over:',
-		"u_etadone": 'Ferdig ({0}, {1} filer)',
-		"u_etaprep": '(forbereder opplastning)',
-		"u_hashdone": 'befaring ferdig',
-		"u_hashing": 'les',
-		"u_hs": 'serveren tenker...',
-		"u_started": "filene blir nå lastet opp 🚀",
-		"u_dupdefer": "duplikat; vil bli håndtert til slutt",
-		"u_actx": "klikk her for å forhindre tap av<br />ytelse ved bytte til andre vinduer/faner",
-		"u_fixed": "OK!&nbsp; Løste seg 👍",
-		"u_cuerr": "kunne ikke laste opp del {0} av {1};\nsikkert greit, fortsetter\n\nfil: {2}",
-		"u_cuerr2": "server nektet opplastningen (del {0} av {1});\nprøver igjen senere\n\nfil: {2}\n\nerror ",
-		"u_ehstmp": "prøver igjen; se mld nederst",
-		"u_ehsfin": "server nektet forespørselen om å ferdigstille filen; prøver igjen...",
-		"u_ehssrch": "server nektet forespørselen om å utføre søk; prøver igjen...",
-		"u_ehsinit": "server nektet forespørselen om å begynne en ny opplastning; prøver igjen...",
-		"u_eneths": "et problem med nettverket gjorde at avtale om opplastning ikke kunne inngås; prøver igjen...",
-		"u_enethd": "et problem med nettverket gjorde at filsjekk ikke kunne utføres; prøver igjen...",
-		"u_cbusy": "venter på klarering ifra server etter et lite nettverksglipp...",
-		"u_ehsdf": "serveren er full!\n\nprøver igjen regelmessig,\ni tilfelle noen rydder litt...",
-		"u_emtleak1": "uff, det er mulig at nettleseren din har en minnelekkasje...\nForeslår",
-		"u_emtleak2": ' helst at du <a href="{0}">bytter til https</a>, eller ',
-		"u_emtleak3": ' at du ',
-		"u_emtleakc": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru av &nbsp;<code>mt</code>&nbsp; bryteren under &nbsp;<code>⚙️ innstillinger</code></li><li>og forsøk den samme opplastningen igjen</li></ul>Opplastning vil gå litt tregere, men det får så være.\nBeklager bryderiet !\n\nPS: feilen <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816" target="_blank">skal være fikset</a> i chrome v107',
-		"u_emtleakf": 'prøver følgende:\n<ul><li>trykk F5 for å laste siden på nytt</li><li>så skru på <code>🥔</code> ("enkelt UI") i opplasteren</li><li>og forsøk den samme opplastningen igjen</li></ul>\nPS: Firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank">fikser forhåpentligvis feilen</a> en eller annen gang',
-		"u_s404": "ikke funnet på serveren",
-		"u_expl": "forklar",
-		"u_maxconn": "de fleste nettlesere tillater ikke mer enn 6, men firefox lar deg øke grensen med <code>connections-per-server</code> i <code>about:config</code>",
-		"u_tu": '<p class="warn">ADVARSEL: turbo er på, <span>&nbsp;avbrutte opplastninger vil muligens ikke oppdages og gjenopptas; hold musepekeren over turbo-knappen for mer info</span></p>',
-		"u_ts": '<p class="warn">ADVARSEL: turbo er på, <span>&nbsp;søkeresultater kan være feil; hold musepekeren over turbo-knappen for mer info</span></p>',
-		"u_turbo_c": "turbo er deaktivert i serverkonfigurasjonen",
-		"u_turbo_g": 'turbo ble deaktivert fordi du ikke har\ntilgang til å se mappeinnhold i dette volumet',
-		"u_life_cfg": 'slett opplastning etter <input id="lifem" p="60" /> min (eller <input id="lifeh" p="3600" /> timer)',
-		"u_life_est": 'opplastningen slettes <span id="lifew" tt="lokal tid">---</span>',
-		"u_life_max": 'denne mappen tillater ikke å \noppbevare filer i mer enn {0}',
-		"u_unp_ok": 'opplastning kan angres i {0}',
-		"u_unp_ng": 'opplastning kan IKKE angres',
-		"ue_ro": 'du har ikke skrivetilgang i denne mappen\n\n',
-		"ue_nl": 'du er ikke logget inn',
-		"ue_la": 'du er logget inn som "{0}"',
-		"ue_sr": 'du er i filsøk-modus\n\nbytt til opplastning ved å klikke på forstørrelsesglasset 🔎 (ved siden av den store FILSØK-knappen) og prøv igjen\n\nsorry',
-		"ue_ta": 'prøv å laste opp igjen, det burde funke nå',
-		"ue_ab": "den samme filen er allerede under opplastning til en annen mappe, og den må fullføres der før filen kan lastes opp andre steder.\n\nDu kan avbryte og glemme den påbegynte opplastningen ved hjelp av 🧯 oppe til venstre",
-		"ur_1uo": "OK: Filen ble lastet opp",
-		"ur_auo": "OK: Alle {0} filene ble lastet opp",
-		"ur_1so": "OK: Filen ble funnet på serveren",
-		"ur_aso": "OK: Alle {0} filene ble funnet på serveren",
-		"ur_1un": "Opplastning feilet!",
-		"ur_aun": "Alle {0} opplastningene gikk feil!",
-		"ur_1sn": "Filen finnes IKKE på serveren",
-		"ur_asn": "Fant INGEN av de {0} filene på serveren",
-		"ur_um": "Ferdig;\n{0} opplastninger gikk bra,\n{1} opplastninger gikk feil",
-		"ur_sm": "Ferdig;\n{0} filer ble funnet,\n{1} filer finnes IKKE på serveren",
-
-		"lang_set": "passer det å laste siden på nytt?",
-	},
-
-	"chi": {
-		// 以 //m 结尾的行是未经验证的机器翻译
-		"tt": "中文",
-		"cols": {
-			"c": "操作按钮",
-			"dur": "持续时间",
-			"q": "质量 / 比特率",
-			"Ac": "音频编码",
-			"Vc": "视频编码",
-			"Fmt": "格式 / 容器",
-			"Ahash": "音频校验和",
-			"Vhash": "视频校验和",
-			"Res": "分辨率",
-			"T": "文件类型",
-			"aq": "音频质量 / 比特率",
-			"vq": "视频质量 / 比特率",
-			"pixfmt": "子采样 / 像素结构",
-			"resw": "水平分辨率",
-			"resh": "垂直分辨率",
-			"chs": "音频频道",
-			"hz": "采样率"
-		},
-
-		"hks": [
-			[
-				"misc",
-				["ESC", "关闭各种窗口"],
-
-				"file-manager",
-				["G", "切换列表 / 网格视图"],
-				["T", "切换缩略图 / 图标"],
-				["⇧ A/D", "缩略图大小"],
-				["ctrl-K", "删除选中项"],
-				["ctrl-X", "剪切选中项"],
-				["ctrl-C", "复制选中项"], //m
-				["ctrl-V", "粘贴到文件夹"],
-				["Y", "下载选中项"],
-				["F2", "重命名选中项"],
-
-				"file-list-sel",
-				["space", "切换文件选择"],
-				["↑/↓", "移动选择光标"],
-				["ctrl ↑/↓", "移动光标和视图"],
-				["⇧ ↑/↓", "选择上一个/下一个文件"],
-				["ctrl-A", "选择所有文件 / 文件夹"]
-			], [
-				"navigation",
-				["B", "切换面包屑导航 / 导航窗格"],
-				["I/K", "前一个/下一个文件夹"],
-				["M", "父文件夹（或折叠当前文件夹）"],
-				["V", "切换导航窗格中的文件夹 / 文本文件"],
-				["A/D", "导航窗格大小"]
-			], [
-				"audio-player",
-				["J/L", "上一首/下一首歌曲"],
-				["U/O", "跳过10秒向前/向后"],
-				["0..9", "跳转到0%..90%"],
-				["P",  "播放/暂停（也可以启动）"],
-				["S", "选择正在播放的歌曲"], //m
-				["Y", "下载歌曲"]
-			], [
-				"image-viewer",
-				["J/L, ←/→", "上一张/下一张图片"],
-				["Home/End", "第一张/最后一张图片"],
-				["F", "全屏"],
-				["R", "顺时针旋转"],
-				["⇧ R", "逆时针旋转"],
-				["S", "选择图片"], //m
-				["Y", "下载图片"]
-			], [
-				"video-player",
-				["U/O", "跳过10秒向前/向后"],
-				["P/K/Space", "播放/暂停"],
-				["C", "继续播放下一段"],
-				["V", "循环"],
-				["M", "静音"],
-				["[ and ]", "设置循环区间"]
-			], [
-				"textfile-viewer",
-				["I/K", "前一个/下一个文件"],
-				["M", "关闭文本文件"],
-				["E", "编辑文本文件"],
-				["S", "选择文件（用于剪切/重命名）"]
-			]
-		],
-
-		"m_ok": "确定",
-		"m_ng": "取消",
-
-		"enable": "启用",
-		"danger": "危险",
-		"clipped": "已复制到剪贴板",
-
-		"ht_s1": "秒",
-		"ht_s2": "秒",
-		"ht_m1": "分",
-		"ht_m2": "分",
-		"ht_h1": "时",
-		"ht_h2": "时",
-		"ht_d1": "天",
-		"ht_d2": "天",
-		"ht_and": " 和 ",
-
-		"goh": "控制面板",
-		"gop": '前一项">pre',
-		"gou": '顶部">up',
-		"gon": '下一项">next',
-		"logout": " 登出",
-		"access": " 访问",
-		"ot_close": "关闭子菜单",
-		"ot_search": "按属性、路径/名称、音乐标签或上述内容的任意组合搜索文件$N$N&lt;code&gt;foo bar&lt;/code&gt; = 必须包含 «foo» 和 «bar»,$N&lt;code&gt;foo -bar&lt;/code&gt; = 包含 «foo» 而不包含 «bar»,$N&lt;code&gt;^yana .opus$&lt;/code&gt; = 以 «yama» 为开头的 «opus» 文件$N&lt;code&gt;&quot;try unite&quot;&lt;/code&gt; = 正好包含 «try unite»$N$N时间格式为 iso-8601, 比如:$N&lt;code&gt;2009-12-31&lt;/code&gt; or &lt;code&gt;2020-09-12 23:30:00&lt;/code&gt;",
-		"ot_unpost": "取消发布：删除最近上传的内容，或中止未完成的内容",
-		"ot_bup": "bup：基础上传器，甚至支持 Netscape 4.0",
-		"ot_mkdir": "mkdir：创建新目录",
-		"ot_md": "new-md：创建新 Markdown 文档",
-		"ot_msg": "msg：向服务器日志发送消息",
-		"ot_mp": "媒体播放器选项",
-		"ot_cfg": "配置选项",
-		"ot_u2i": 'up2k：上传文件（如果你有写入权限），或切换到搜索模式以查看文件是否存在于服务器上,$N$N上传是可恢复的，多线程的，保留文件时间戳，但比 [🎈]&nbsp;（基础上传器）占用 更多的CPU<br /><br />上传过程中，此图标会变成进度指示器！',
-		"ot_u2w": 'up2k：带有恢复支持的文件上传（关闭浏览器后，重新上传相同文件）$N$N多线程的，文件时间戳得以保留，但比 [🎈]&nbsp; （基础上传器）使用更多CPU<br /><br />上传过程中，这个图标会变成进度指示器！',
-		"ot_noie": '请使用 Chrome / Firefox / Edge',
-
-		"ab_mkdir": "创建目录",
-		"ab_mkdoc": "新建 Markdown 文档",
-		"ab_msg": "发送消息到服务器日志",
-
-		"ay_path": "跳转到文件夹",
-		"ay_files": "跳转到文件",
-
-		"wt_ren": "重命名选中的项目$N快捷键: F2",
-		"wt_del": "删除选中的项目$N快捷键: ctrl-K",
-		"wt_cut": "剪切选中的项目&lt;small&gt;（然后粘贴到其他地方）&lt;/small&gt;$N快捷键: ctrl-X",
-		"wt_cpy": "将选中的项目复制到剪贴板&lt;small&gt;（然后粘贴到其他地方）&lt;/small&gt;$N快捷键: ctrl-C", //m
-		"wt_pst": "粘贴之前剪切/复制的选择$N快捷键: ctrl-V",
-		"wt_selall": "选择所有文件$N快捷键: ctrl-A（当文件被聚焦时）",
-		"wt_selinv": "反转选择",
-		"wt_zip1": "将此文件夹下载为归档文件", //m
-		"wt_selzip": "将选择下载为归档文件",
-		"wt_seldl": "将选择下载为单独的文件$N快捷键: Y",
-		"wt_npirc": "复制 IRC 格式的曲目信息",
-		"wt_nptxt": "复制纯文本格式的曲目信息",
-		"wt_m3ua": "添加到 m3u 播放列表（稍后点击 <code>📻copy</code>）", //m
-		"wt_m3uc": "复制 m3u 播放列表到剪贴板", //m
-		"wt_grid": "切换网格/列表视图$N快捷键: G",
-		"wt_prev": "上一曲$N快捷键: J",
-		"wt_play": "播放/暂停$N快捷键: P",
-		"wt_next": "下一曲$N快捷键: L",
-
-		"ul_par": "并行上传：",
-		"ut_rand": "随机化文件名",
-		"ut_u2ts": "将最后修改的时间戳$N从你的文件系统复制到服务器\">📅",
-		"ut_ow": "覆盖服务器上的现有文件？$N🛡️: 从不（会生成一个新文件名）$N🕒: 服务器文件较旧则覆盖$N♻️: 总是覆盖，如果文件内容不同", //m
-		"ut_mt": "在上传时继续哈希其他文件$N$N如果你的 CPU 或硬盘是瓶颈，可能需要禁用",
-		"ut_ask": '上传开始前询问确认">💭',
-		"ut_pot": "通过简化 UI 来$N提高慢设备上的上传速度",
-		"ut_srch": "实际不上传，而是检查文件是否$N已经存在于服务器上（将扫描你可以读取的所有文件夹）",
-		"ut_par": "通过将其设置为 0 来暂停上传$N$N如果你的连接很慢/延迟高，$N$N请增加在局域网或服务器硬盘是瓶颈时保持为 1",
-		"ul_btn": "将文件/文件夹拖放到这里（或点击我）",
-		"ul_btnu": "上 传",
-		"ul_btns": "搜 索",
-
-		"ul_hash": "哈希",
-		"ul_send": "发送",
-		"ul_done": "完成",
-		"ul_idle1": "没有排队的上传任务",
-		"ut_etah": "平均 &lt;em&gt;hashing&lt;/em&gt; 速度和估计完成时间",
-		"ut_etau": "平均 &lt;em&gt;上传&lt;/em&gt; 速度和估计完成时间",
-		"ut_etat": "平均 &lt;em&gt;总&lt;/em&gt; 速度和估计完成时间",
-
-		"uct_ok": "成功完成",
-		"uct_ng": "失败/拒绝/未找到",
-		"uct_done": "成功和失败的组合",
-		"uct_bz": "正在哈希或上传",
-		"uct_q": "空闲，待处理",
-
-		"utl_name": "文件名",
-		"utl_ulist": "列表",
-		"utl_ucopy": "复制",
-		"utl_links": "链接",
-		"utl_stat": "状态",
-		"utl_prog": "进度",
-
-		// 保持简短:
-		"utl_404": "404",
-		"utl_err": "错误",
-		"utl_oserr": "OS错误",
-		"utl_found": "已找到",
-		"utl_defer": "延期",
-		"utl_yolo": "加速",
-		"utl_done": "完成",
-
-		"ul_flagblk": "文件已添加到队列</b><br>但另一个浏览器标签中有一个繁忙的 up2k，<br>因此等待它完成",
-		"ul_btnlk": "服务器配置已将此开关锁定到此状态",
-
-		"udt_up": "上传",
-		"udt_srch": "搜索",
-		"udt_drop": "将文件拖放到这里",
-
-		"u_nav_m": '<h6>好的，你有什么？</h6><code>Enter</code> = 文件（一个或多个）\n<code>ESC</code> = 一个文件夹（包括子文件夹）',
-		"u_nav_b": '<a href="#" id="modal-ok">文件</a><a href="#" id="modal-ng">一个文件夹</a>',
-
-		"cl_opts": "开关选项",
-		"cl_themes": "主题",
-		"cl_langs": "语言",
-		"cl_ziptype": "文件夹下载",
-		"cl_uopts": "up2k 开关",
-		"cl_favico": "网站图标",
-		"cl_bigdir": "最大目录数",
-		"cl_hsort": "#sort", //m
-		"cl_keytype": "键位符号",
-		"cl_hiddenc": "隐藏列",
-		"cl_hidec": "隐藏",
-		"cl_reset": "重置",
-		"cl_hpick": "点击列标题以在下表中隐藏",
-		"cl_hcancel": "列隐藏已取消",
-
-		"ct_grid": '网格视图',
-		"ct_ttips": '◔ ◡ ◔">ℹ️ 工具提示',
-		"ct_thumb": '在网格视图中，切换图标或缩略图$N快捷键: T">🖼️ 缩略图',
-		"ct_csel": '在网格视图中使用 CTRL 和 SHIFT 进行文件选择">CTRL',
-		"ct_ihop": '当图像查看器关闭时，滚动到最后查看的文件">滚动',
-		"ct_dots": '显示隐藏文件（如果服务器允许）">隐藏文件',
-		"ct_qdel": '删除文件时，只需确认一次">快删', //m
-		"ct_dir1st": '在文件之前排序文件夹">📁 排序',
-		"ct_nsort": '正确排序以数字开头的文件名">数字排序', //m
-		"ct_readme": '在文件夹列表中显示 README.md">📜 readme',
-		"ct_idxh": '显示 index.html 代替文件夹列表">htm',
-		"ct_sbars": '显示滚动条">⟊',
-
-		"cut_umod": "如果文件已存在于服务器上，将服务器的最后修改时间戳更新为与你的本地文件匹配（需要写入和删除权限）\">re📅",
-
-		"cut_turbo": "YOLO 按钮，你可能不想启用这个：$N$N如果你上传了大量文件并且由于某些原因需要重新启动，$N并且想要尽快继续上传，使用此选项$N$N这会用简单的 <em>&quot;服务器上的文件大小是否相同？&quot;</em> 替代哈希检查，$N因此如果文件内容不同，它将不会被上传$N$N上传完成后，你应该关闭此选项，$N然后重新&quot;上传&quot;相同的文件以让客户端验证它们\">加速",
-
-		"cut_datechk": "除非启用「加速」按钮，否则没有效果$N$N略微减少 YOLO 因素；检查服务器上的文件时间戳是否与你的一致$N$N<em>理论上</em> 应该能捕捉到大多数未完成/损坏的上传，$N但不能替代之后禁用「加速」进行的验证\">日期检查",
-
-		"cut_u2sz": "每个上传块的大小（以 MiB 为单位）；较大的值跨大西洋传输效果更好。在非常不可靠的连接上尝试较小的值",
-
-		"cut_flag": "确保一次只有一个标签页在上传$N -- 其他标签页也必须启用此选项$N -- 仅影响同一域名下的标签页",
-
-		"cut_az": "按字母顺序上传文件，而不是按最小文件优先$N$N按字母顺序可以更容易地查看服务器上是否出现了问题，但在光纤/局域网上传稍微慢一些",
-
-		"cut_nag": "上传完成时的操作系统通知$N（仅当浏览器或标签页不活跃时）",
-		"cut_sfx": "上传完成时的声音警报$N（仅当浏览器或标签页不活跃时）",
-
-		"cut_mt": "使用多线程加速文件哈希$N$N这使用 Web Worker 并且需要更多内存（额外最多 512 MiB）$N$N这使得 https 快 30%，http 快 4.5 倍\">mt",
-
-		"cut_wasm": "使用基于 WASM 的哈希计算器代替浏览器内置的哈希功能；这可以提升在基于 Chrome 的浏览器上的速度，但会增加 CPU 使用率，而且许多旧版本的 Chrome 存在漏洞，启用此功能会导致浏览器占用所有内存并崩溃。\">wasm", //m
-
-		"cft_text": "网站图标文本（为空并刷新以禁用）",
-		"cft_fg": "前景色",
-		"cft_bg": "背景色",
-
-		"cdt_lim": "文件夹中显示的最大文件数",
-		"cdt_ask": "滚动到底部时，$N不会加载更多文件，$N而是询问你该怎么做",
-		"cdt_hsort": "包含在媒体 URL 中的排序规则 (&lt;code&gt;,sorthref&lt;/code&gt;) 数量。将其设置为 0 时，点击媒体链接时也会忽略排序规则。", //m
-
-		"tt_entree": "显示导航面板（目录树侧边栏）$N快捷键: B",
-		"tt_detree": "显示面包屑导航$N快捷键: B",
-		"tt_visdir": "滚动到选定的文件夹",
-		"tt_ftree": "切换文件夹树 / 文本文件$N快捷键: V",
-		"tt_pdock": "在顶部的停靠窗格中显示父文件夹",
-		"tt_dynt": "随着树的展开自动增长",
-		"tt_wrap": "自动换行",
-		"tt_hover": "悬停时显示溢出的行$N（当鼠标光标在左侧边栏中时，滚动可能会中断）",
-
-		"ml_pmode": "在文件夹末尾时...",
-		"ml_btns": "命令",
-		"ml_tcode": "转码",
-		"ml_tcode2": "转换为", //m
-		"ml_tint": "透明度",
-		"ml_eq": "音频均衡器",
-		"ml_drc": "动态范围压缩器",
-
-		"mt_loop": "循环播放当前的歌曲\">🔁", //m
-		"mt_one": "只播放一首歌后停止\">1️⃣", //m
-		"mt_shuf": "在每个文件夹中随机播放歌曲\">🔀",
-		"mt_aplay": "如果链接中有歌曲 ID，则自动播放,禁用此选项将停止在播放音乐时更新页面 URL 中的歌曲 ID，以防止在设置丢失但 URL 保留时自动播放\">自动播放▶",
-		"mt_preload": "在歌曲快结束时开始加载下一首歌，以实现无缝播放\">预加载",
-		"mt_prescan": "在最后一首歌结束之前切换到下一个文件夹$N保持网页浏览器活跃$N以免停止播放\">自动切换",
-		"mt_fullpre": "尝试预加载整首歌；$N✅ 在 <b>不可靠</b> 连接上启用，$N❌ 可能在慢速连接上禁用\">加载整首歌",
-		"mt_fau": "在手机上，如果下一首歌未能快速预加载，防止音乐停止（可能导致标签显示异常）\">☕️",
-		"mt_waves": "波形进度条：$N显示音频幅度\">进度条",
-		"mt_npclip": "显示当前播放歌曲的剪贴板按钮\">♪剪切板",
-		"mt_m3u_c": "显示按钮以将所选歌曲$N复制为 m3u8 播放列表条目\">📻", //m
-		"mt_octl": "操作系统集成（媒体快捷键 / OSD）\">OSD",
-		"mt_oseek": "允许通过操作系统集成进行跳转$N$N注意：在某些设备（如 iPhone）上，$N这将替代下一首歌按钮\">seek",
-		"mt_oscv": "在 OSD 中显示专辑封面\">封面",
-		"mt_follow": "保持正在播放的曲目滚动到视图中\">🎯",
-		"mt_compact": "紧凑的控制按钮\">⟎",
-		"mt_uncache": "清除缓存&nbsp;$N（如果你的浏览器缓存了一个损坏的歌曲副本而拒绝播放，请尝试此操作）\">uncache",
-		"mt_mloop": "循环打开的文件夹\">🔁 循环",
-		"mt_mnext": "加载下一个文件夹并继续\">📂 下一首",
-		"mt_mstop": "停止播放\">⏸ 停止", //m
-		"mt_cflac": "将 flac / wav 转换为 opus\">flac",
-		"mt_caac": "将 aac / m4a 转换为 opus\">aac",
-		"mt_coth": "将所有其他（不是 mp3）转换为 opus\">oth",
-		"mt_c2opus": "适合桌面电脑、笔记本电脑和安卓设备的最佳选择\">opus", //m
-		"mt_c2owa": "opus-weba（适用于 iOS 17.5 及更新版本）\">owa", //m
-		"mt_c2caf": "opus-caf（适用于 iOS 11 到 iOS 17）\">caf", //m
-		"mt_c2mp3": "适用于非常旧的设备\">mp3", //m
-		"mt_c2ok": "不错的选择！", //m
-		"mt_c2nd": "这不是您的设备推荐的输出格式，但应该没问题。", //m
-		"mt_c2ng": "您的设备似乎不支持此输出格式，不过我们还是试试看吧。", //m
-		"mt_xowa": "iOS 系统仍存在无法后台播放 owa 音乐的错误，请改用 caf 或 mp3 格式。", //m
-		"mt_tint": "在进度条上设置背景级别（0-100）",
-		"mt_eq": "启用均衡器和增益控制；$N$Nboost &lt;code&gt;0&lt;/code&gt; = 标准 100% 音量（默认）$N$Nwidth &lt;code&gt;1 &nbsp;&lt;/code&gt; = 标准立体声（默认）$Nwidth &lt;code&gt;0.5&lt;/code&gt; = 50% 左右交叉反馈$Nwidth &lt;code&gt;0 &nbsp;&lt;/code&gt; = 单声道$N$Nboost &lt;code&gt;-0.8&lt;/code&gt; &amp; width &lt;code&gt;10&lt;/code&gt; = 人声移除 )$N$N启用均衡器使无缝专辑完全无缝，所以如果你在乎这一点，请保持启用，所有值设为零（除了宽度 = 1）",
-		"mt_drc": "启用动态范围压缩器（音量平滑器 / 限幅器）；还会启用均衡器以平衡音频，因此如果你不想要它，请将均衡器字段除了 '宽度' 外的所有字段设置为 0$N$N降低 THRESHOLD dB 以上的音频的音量；每超过 THRESHOLD dB 的 RATIO 会有 1 dB 输出，所以默认值 tresh -24 和 ratio 12 意味着它的音量不应超过 -22 dB，可以安全地将均衡器增益提高到 0.8，甚至在 ATK 0 和 RLS 如 90 的情况下提高到 1.8（仅在 Firefox 中有效；其他浏览器中 RLS 最大为 1）$N$N（见维基百科，他们解释得更好）",
-
-		"mb_play": "播放",
-		"mm_hashplay": "播放这个音频文件？",
-		"mm_m3u": "按 <code>Enter/确定</code> 播放\n按 <code>ESC/取消</code> 编辑", //m
-		"mp_breq": "需要 Firefox 82+ 或 Chrome 73+ 或 iOS 15+",
-		"mm_bload": "正在加载...",
-		"mm_bconv": "正在转换为 {0}，请稍等...",
-		"mm_opusen": "你的浏览器无法播放 aac / m4a 文件；\n现在启用转码为 opus",
-		"mm_playerr": "播放失败：",
-		"mm_eabrt": "播放尝试已取消",
-		"mm_enet": "你的互联网连接有问题",
-		"mm_edec": "这个文件可能已损坏？？",
-		"mm_esupp": "你的浏览器不支持这个音频格式",
-		"mm_eunk": "未知错误",
-		"mm_e404": "无法播放音频；错误 404：文件未找到。",
-		"mm_e403": "无法播放音频；错误 403：访问被拒绝。\n\n尝试按 F5 重新加载，也许你已被注销",
-		"mm_e500": "无法播放音频；错误 500：检查服务器日志。", //m
-		"mm_e5xx": "无法播放音频；服务器错误",
-		"mm_nof": "附近找不到更多音频文件",
-		"mm_prescan": "正在寻找下一首音乐...",
-		"mm_scank": "找到下一首歌：",
-		"mm_uncache": "缓存已清除；所有歌曲将在下次播放时重新下载",
-		"mm_hnf": "那首歌不再存在",
-
-		"im_hnf": "那张图片不再存在",
-
-		"f_empty": '该文件夹为空',
-		"f_chide": '隐藏列 «{0}»\n\n你可以在设置选项卡中重新显示列',
-		"f_bigtxt": "这个文件大小为 {0} MiB -- 真的以文本形式查看？",
-		"f_bigtxt2": " 你想查看文件的结尾部分吗？这也将启用实时跟踪功能，能够实时显示新添加的文本行。", //m
-		"fbd_more": '<div id="blazy">显示 <code>{0}</code> 个文件中的 <code>{1}</code> 个；<a href="#" id="bd_more">显示 {2}</a> 或 <a href="#" id="bd_all">显示全部</a></div>',
-		"fbd_all": '<div id="blazy">显示 <code>{0}</code> 个文件中的 <code>{1}</code> 个；<a href="#" id="bd_all">显示全部</a></div>',
-		"f_anota": "仅选择了 {0} 个项目，共 {1} 个；\n要选择整个文件夹，请先滚动到底部", //m
-
-		"f_dls": '当前文件夹中的文件链接已\n更改为下载链接',
-
-		"f_partial": "要安全下载正在上传的文件，请点击没有 <code>.PARTIAL</code> 文件扩展名的同名文件。请按取消或 Escape 执行此操作。\n\n按 OK / Enter 将忽略此警告并继续下载 <code>.PARTIAL</code> 临时文件，这几乎肯定会导致数据损坏。",
-
-		"ft_paste": "粘贴 {0} 项$N快捷键: ctrl-V",
-		"fr_eperm": '无法重命名：\n你在此文件夹中没有 “移动” 权限',
-		"fd_eperm": '无法删除：\n你在此文件夹中没有 “删除” 权限',
-		"fc_eperm": '无法剪切：\n你在此文件夹中没有 “移动” 权限',
-		"fp_eperm": '无法粘贴：\n你在此文件夹中没有 “写入” 权限',
-		"fr_emore": "选择至少一个项目以重命名",
-		"fd_emore": "选择至少一个项目以删除",
-		"fc_emore": "选择至少一个项目以剪切",
-		"fcp_emore": "选择至少一个要复制到剪贴板的项目", //m
-
-		"fs_sc": "分享你所在的文件夹",
-		"fs_ss": "分享选定的文件",
-		"fs_just1d": "你不能同时选择多个文件夹，也不能同时选择文件夹和文件",
-		"fs_abrt": "❌ 取消",
-		"fs_rand": "🎲 随机名称",
-		"fs_go": "✅ 创建分享",
-		"fs_name": "名称",
-		"fs_src": "源",
-		"fs_pwd": "密码",
-		"fs_exp": "过期",
-		"fs_tmin": "分",
-		"fs_thrs": "时",
-		"fs_tdays": "天",
-		"fs_never": "永久",
-		"fs_pname": "链接名称可选；如果为空则随机",
-		"fs_tsrc": "共享的文件或文件夹",
-		"fs_ppwd": "密码可选",
-		"fs_w8": "正在创建文件共享...",
-		"fs_ok": "按 <code>Enter/确定</code> 复制到剪贴板\n按 <code>ESC/取消</code> 关闭",
-
-		"frt_dec": "可能修复一些损坏的文件名\">url-decode",
-		"frt_rst": "将修改后的文件名重置为原始文件名\">↺ 重置",
-		"frt_abrt": "中止并关闭此窗口\">❌ 取消",
-		"frb_apply": "应用重命名",
-		"fr_adv": "批量 / 元数据 / 模式重命名\">高级",
-		"fr_case": "区分大小写的正则表达式\">case",
-		"fr_win": "Windows 安全名称；将 <code>&lt;&gt;:&quot;\\|?*</code> 替换为日文全角字符\">win",
-		"fr_slash": "将 <code>/</code> 替换为不会导致新文件夹创建的字符\">不使用 /",
-		"fr_re": "正则表达式搜索模式应用于原始文件名；$N可以在下面的格式字段中引用捕获组，如&lt;code&gt;(1)&lt;/code&gt;和&lt;code&gt;(2)&lt;/code&gt;等等。",
-		"fr_fmt": "受到 foobar2000 的启发：$N&lt;code&gt;(title)&lt;/code&gt; 被歌曲名称替换,$N&lt;code&gt;[(artist) - ](title)&lt;/code&gt; 仅当歌曲艺术家不为空时才包含&lt;code&gt;[此]&lt;/code&gt;部分$N&lt;code&gt;$lpad((tn),2,0)&lt;/code&gt; 将曲目编号填充为 2 位数字",
-		"fr_pdel": "删除",
-		"fr_pnew": "另存为",
-		"fr_pname": "为你的新预设提供一个名称",
-		"fr_aborted": "已中止",
-		"fr_lold": "旧名称",
-		"fr_lnew": "新名称",
-		"fr_tags": "选定文件的标签（只读，仅供参考）：",
-		"fr_busy": "正在重命名 {0} 项...\n\n{1}",
-		"fr_efail": "重命名失败：\n",
-		"fr_nchg": "{0} 个新名称由于 <code>win</code> 和/或 <code>不使用 /</code> 被更改\n\n确定继续使用这些更改的新名称？",
-
-		"fd_ok": "删除成功",
-		"fd_err": "删除失败：\n",
-		"fd_none": "没有文件被删除；可能被服务器配置（xbd）阻止？",
-		"fd_busy": "正在删除 {0} 项...\n\n{1}",
-		"fd_warn1": "删除这 {0} 项？",
-		"fd_warn2": "<b>最后机会！</b> 无法撤销。删除？",
-
-		"fc_ok": "剪切 {0} 项",
-		"fc_warn": '剪切 {0} 项\n\n但：只有 <b>这个</b> 浏览器标签页可以粘贴它们\n（因为选择非常庞大）',
-
-		"fcc_ok": "已将 {0} 项复制到剪贴板", //m
-		"fcc_warn": '已将 {0} 项复制到剪贴板\n\n但：只有 <b>这个</b> 浏览器标签页可以粘贴它们\n（因为选择非常庞大）', //m
-
-		"fp_apply": "确认并立即粘贴", //m
-		"fp_ecut": "首先剪切或复制一些文件/文件夹以粘贴/移动\n\n注意：你可以在不同的浏览器标签页之间剪切/粘贴", //m
-		"fp_ename": "{0} 项不能移动到这里，因为名称已被占用。请在下方输入新名称以继续，或将名称留空以跳过这些项：", //m
-		"fcp_ename": "{0} 项不能复制到这里，因为名称已被占用。请在下方输入新名称以继续，或将名称留空以跳过这些项：", //m
-		"fp_emore": "还有一些文件名冲突需要解决", //m
-		"fp_ok": "移动成功",
-		"fcp_ok": "复制成功", //m
-		"fp_busy": "正在移动 {0} 项...\n\n{1}",
-		"fcp_busy": "正在复制 {0} 项...\n\n{1}", //m
-		"fp_err": "移动失败：\n",
-		"fcp_err": "复制失败：\n", //m
-		"fp_confirm": "将这些 {0} 项移动到这里？",
-		"fcp_confirm": "将这些 {0} 项复制到这里？", //m
-		"fp_etab": '无法从其他浏览器标签页读取剪贴板',
-		"fp_name": "从你的设备上传一个文件。给它一个名字：",
-		"fp_both_m": '<h6>选择粘贴内容</h6><code>Enter</code> = 从 «{1}» 移动 {0} 个文件\n<code>ESC</code> = 从你的设备上传 {2} 个文件',
-		"fcp_both_m": '<h6>选择粘贴内容</h6><code>Enter</code> = 从 «{1}» 复制 {0} 个文件\n<code>ESC</code> = 从你的设备上传 {2} 个文件', //m
-		"fp_both_b": '<a href="#" id="modal-ok">移动</a><a href="#" id="modal-ng">上传</a>',
-		"fcp_both_b": '<a href="#" id="modal-ok">复制</a><a href="#" id="modal-ng">上传</a>', //m
-
-		"mk_noname": "在左侧文本框中输入名称，然后再执行此操作 :p",
-
-		"tv_load": "加载文本文件：\n\n{0}\n\n{1}% ({2} 的 {3} MiB 已加载)",
-		"tv_xe1": "无法加载文本文件：\n\n错误 ",
-		"tv_xe2": "404，文件未找到",
-		"tv_lst": "文本文件列表",
-		"tvt_close": "返回到文件夹视图$N快捷键: M（或 Esc）\">❌ 关闭",
-		"tvt_dl": "下载此文件$N快捷键: Y\">💾 下载",
-		"tvt_prev": "显示上一个文档$N快捷键: i\">⬆ 上一个",
-		"tvt_next": "显示下一个文档$N快捷键: K\">⬇ 下一个",
-		"tvt_sel": "选择文件&nbsp;（用于剪切/删除/...）$N快捷键: S\">选择",
-		"tvt_edit": "在文本编辑器中打开文件$N快捷键: E\">✏️ 编辑",
-		"tvt_tail": "监视文件更改，并实时显示新增的行\">📡 跟踪", //m
-		"tvt_wrap": "自动换行\">↵", //m
-		"tvt_atail": "锁定到底部，显示最新内容\">⚓", //m
-		"tvt_ctail": "解析终端颜色（ANSI 转义码）\">🌈", //m
-		"tvt_ntail": "滚动历史上限（保留多少字节的文本）", //m
-
-		"m3u_add1": "歌曲已添加到 m3u 播放列表", //m
-		"m3u_addn": "已添加 {0} 首歌曲到 m3u 播放列表", //m
-		"m3u_clip": "m3u 播放列表已复制到剪贴板\n\n请创建一个以 <code>.m3u</code> 结尾的文本文件，\n并将播放列表粘贴到该文件中；\n这样就可以播放了", //m
-
-		"gt_vau": "不显示视频，仅播放音频\">🎧",
-		"gt_msel": "启用文件选择；按住 ctrl 键点击文件以覆盖$N$N&lt;em&gt;当启用时：双击文件/文件夹以打开它&lt;/em&gt;$N$N快捷键：S\">多选",
-		"gt_crop": "中心裁剪缩略图\">裁剪",
-		"gt_3x": "高分辨率缩略图\">3x",
-		"gt_zoom": "缩放",
-		"gt_chop": "剪裁",
-		"gt_sort": "排序依据",
-		"gt_name": "名称",
-		"gt_sz": "大小",
-		"gt_ts": "日期",
-		"gt_ext": "类型",
-		"gt_c1": "截断文件名更多（显示更少）",
-		"gt_c2": "截断文件名更少（显示更多）",
-
-		"sm_w8": "正在搜索...",
-		"sm_prev": "上次查询的搜索结果：\n  ",
-		"sl_close": "关闭搜索结果",
-		"sl_hits": "显示 {0} 个结果",
-		"sl_moar": "加载更多",
-
-		"s_sz": "大小",
-		"s_dt": "日期",
-		"s_rd": "路径",
-		"s_fn": "名称",
-		"s_ta": "标签",
-		"s_ua": "上传于",
-		"s_ad": "高级",
-		"s_s1": "最小 MiB",
-		"s_s2": "最大 MiB",
-		"s_d1": "最早 iso8601",
-		"s_d2": "最晚 iso8601",
-		"s_u1": "上传后",
-		"s_u2": "和/或之前",
-		"s_r1": "路径包含 &nbsp;（空格分隔）",
-		"s_f1": "名称包含 &nbsp;（用 -nope 否定）",
-		"s_t1": "标签包含 &nbsp;（^=开头，$=结尾）",
-		"s_a1": "特定元数据属性",
-
-		"md_eshow": "无法渲染 ",
-		"md_off": "[📜<em>readme</em>] 在 [⚙️] 中禁用 -- 文档隐藏",
-
-		"badreply": "解析服务器回复失败",
-
-		"xhr403": "403: 访问被拒绝\n\n尝试按 F5 可能会重新登录",
-		"xhr0": "未知（可能丢失连接到服务器，或服务器离线）",
-		"cf_ok": "抱歉 -- DD" + wah + "oS 保护启动\n\n事情应该在大约 30 秒后恢复\n\n如果没有任何变化，按 F5 重新加载页面",
-		"tl_xe1": "无法列出子文件夹：\n\n错误 ",
-		"tl_xe2": "404: 文件夹未找到",
-		"fl_xe1": "无法列出文件夹中的文件：\n\n错误 ",
-		"fl_xe2": "404: 文件夹未找到",
-		"fd_xe1": "无法创建子文件夹：\n\n错误 ",
-		"fd_xe2": "404: 父文件夹未找到",
-		"fsm_xe1": "无法发送消息：\n\n错误 ",
-		"fsm_xe2": "404: 父文件夹未找到",
-		"fu_xe1": "无法从服务器加载未发布列表：\n\n错误 ",
-		"fu_xe2": "404: 文件未找到??",
-
-		"fz_tar": "未压缩的 gnu-tar 文件（linux / mac）",
-		"fz_pax": "未压缩的 pax 格式 tar（较慢）",
-		"fz_targz": "gnu-tar 带 gzip 级别 3 压缩$N$N通常非常慢，所以$N建议使用未压缩的 tar",
-		"fz_tarxz": "gnu-tar 带 xz 级别 1 压缩$N$N通常非常慢，所以$N建议使用未压缩的 tar",
-		"fz_zip8": "zip 带 utf8 文件名（在 windows 7 及更早版本上可能会出现问题）",
-		"fz_zipd": "zip 带传统 cp437 文件名，适用于非常旧的软件",
-		"fz_zipc": "cp437 带 crc32 提前计算，$N适用于 MS-DOS PKZIP v2.04g（1993 年 10 月）$N（处理时间较长，在下载开始之前）",
-
-		"un_m1": "你可以删除下面的近期上传（或中止未完成的上传）",
-		"un_upd": "刷新",
-		"un_m4": "或分享下面可见的文件：",
-		"un_ulist": "显示",
-		"un_ucopy": "复制",
-		"un_flt": "可选过滤器：&nbsp; URL 必须包含",
-		"un_fclr": "清除过滤器",
-		"un_derr": '未发布删除失败：\n',
-		"un_f5": '出现问题，请尝试刷新或按 F5',
-		"un_uf5": "抱歉，你必须刷新页面（例如，按 F5 或 CTRL-R），然后才能中止此上传",
-		"un_nou": '<b>警告：</b> 服务器太忙，无法显示未完成的上传；稍后点击“刷新”链接',
-		"un_noc": '<b>警告：</b> 服务器配置中未启用/允许完全上传文件的取消发布',
-		"un_max": "显示前 2000 个文件（使用过滤器）",
-		"un_avail": "{0} 个近期上传可以被删除<br />{1} 个未完成的上传可以被中止",
-		"un_m2": "按上传时间排序；最新的在前：",
-		"un_no1": "哎呀！没有足够新的上传",
-		"un_no2": "哎呀！没有符合该过滤器的足够新的上传",
-		"un_next": "删除下面的下一个 {0} 个文件",
-		"un_abrt": "中止",
-		"un_del": "删除",
-		"un_m3": "正在加载你的近期上传...",
-		"un_busy": "正在删除 {0} 个文件...",
-		"un_clip": "{0} 个链接已复制到剪贴板",
-
-		"u_https1": "你应该",
-		"u_https2": "切换到 https",
-		"u_https3": "以获得更好的性能",
-		"u_ancient": '你的浏览器非常古老 -- 也许你应该 <a href="#" onclick="goto(\'bup\')">改用 bup</a>',
-		"u_nowork": "需要 Firefox 53+ 或 Chrome 57+ 或 iOS 11+",
-		"tail_2old": "需要 Firefox 105+ 或 Chrome 71+ 或 iOS 14.5+",
-		"u_nodrop": '浏览器版本低，不支持通过拖动文件到窗口来上传文件',
-		"u_notdir": "不是文件夹！\n\n您的浏览器太旧；\n请尝试将文件夹拖入窗口",
-		"u_uri": "要从其他浏览器窗口拖放图片，\n请将其拖放到大的上传按钮上",
-		"u_enpot": '切换到 <a href="#">简约 UI</a>（可能提高上传速度）',
-		"u_depot": '切换到 <a href="#">精美 UI</a>（可能降低上传速度）',
-		"u_gotpot": '切换到简化UI以提高上传速度，\n\n随时可以不同意并切换回去！',
-		"u_pott": "<p>个文件： &nbsp; <b>{0}</b> 已完成， &nbsp; <b>{1}</b> 失败， &nbsp; <b>{2}</b> 正在处理， &nbsp; <b>{3}</b> 排队中</p>",
-		"u_ever": "这是基本的上传工具； up2k 需要至少<br>chrome 21 // firefox 13 // edge 12 // opera 12 // safari 5.1",
-		"u_su2k": '这是基本的上传工具；<a href="#" id="u2yea">up2k</a> 更好',
-		"u_uput": '提高速度（跳过校验和）',
-		"u_ewrite": '你对这个文件夹没有写入权限',
-		"u_eread": '你对这个文件夹没有读取权限',
-		"u_enoi": '文件搜索在服务器配置中未启用',
-		"u_enoow": "无法覆盖此处的文件；需要删除权限", //m
-		"u_badf": '这些 {0} 个文件（共 {1} 个）被跳过，可能是由于文件系统权限：\n\n',
-		"u_blankf": '这些 {0} 个文件（共 {1} 个）是空白的；是否仍然上传？\n\n',
-		"u_applef": "这些 {0} 个文件（共 {1} 个）可能是不需要的；\n按 <code>确定/Enter</code> 跳过以下文件，\n按 <code>取消/ESC</code> 取消排除，并上传这些文件：\n\n", //m
-		"u_just1": '\n也许如果你只选择一个文件会更好',
-		"u_ff_many": "如果你使用的是 <b>Linux / MacOS / Android，</b> 那么这个文件数量 <a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=1790500\" target=\"_blank\"><em>可能</em> 崩溃 Firefox!</a>\n如果发生这种情况，请再试一次（或使用 Chrome）。",
-		"u_up_life": "此上传将在 {0} 后从服务器删除",
-		"u_asku": '将这些 {0} 个文件上传到 <code>{1}</code>',
-		"u_unpt": "你可以使用左上角的 🧯 撤销/删除此上传",
-		"u_bigtab": '将显示 {0} 个文件,可能会导致您的浏览器崩溃。您确定吗？',
-		"u_scan": '正在扫描文件...',
-		"u_dirstuck": '您的浏览器无法访问以下 {0} 个文件/文件夹，它们将被跳过：',
-		"u_etadone": '完成 ({0}, {1} 个文件)',
-		"u_etaprep": '(准备上传)',
-		"u_hashdone": '哈希完成',
-		"u_hashing": '哈希',
-		"u_hs": '正在等待服务器...',
-		"u_started": "文件现在正在上传 🚀", //m
-		"u_dupdefer": "这是一个重复文件。它将在所有其他文件上传后进行处理",
-		"u_actx": "单击此文本以防止切换到其他窗口/选项卡时性能下降",
-		"u_fixed": "好！&nbsp;已修复 👍",
-		"u_cuerr": "上传块 {0} 的 {1} 失败；\n可能无害，继续中\n\n文件：{2}",
-		"u_cuerr2": "服务器拒绝上传（块 {0} 的 {1}）；\n稍后重试\n\n文件：{2}\n\n错误 ",
-		"u_ehstmp": "将重试；见右下角",
-		"u_ehsfin": "服务器拒绝了最终上传请求；正在重试...",
-		"u_ehssrch": "服务器拒绝了搜索请求；正在重试...",
-		"u_ehsinit": "服务器拒绝了启动上传请求；正在重试...",
-		"u_eneths": "进行上传握手时的网络错误；正在重试...",
-		"u_enethd": "测试目标存在时的网络错误；正在重试...",
-		"u_cbusy": "等待服务器在网络故障后再次信任我们...",
-		"u_ehsdf": "服务器磁盘空间不足！\n\n将继续重试，以防有人\n释放足够的空间以继续",
-		"u_emtleak1": "看起来你的网页浏览器可能有内存泄漏；\n请",
-		"u_emtleak2": ' <a href="{0}">切换到 https（推荐）</a> 或 ',
-		"u_emtleak3": ' ',
-		"u_emtleakc": '尝试以下操作：\n<ul><li>按 <code>F5</code> 刷新页面</li><li>然后在&nbsp;<code>⚙️ 设置</code> 中禁用&nbsp;<code>mt</code>&nbsp;按钮</li><li>然后再次尝试上传</li></ul>上传会稍微慢一些，不过没关系。\n抱歉带来麻烦！\n\nPS：chrome v107 <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=1354816" target="_blank">已修复</a>此问题',
-		"u_emtleakf": '尝试以下操作：\n<ul><li>按 <code>F5</code> 刷新页面</li><li>然后在上传 UI 中启用 <code>🥔</code>（土豆）<li>然后再次尝试上传</li></ul>\nPS: firefox <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1790500" target="_blank">希望会在某个时点修复此问题</a>',
-		"u_s404": "在服务器上未找到",
-		"u_expl": "解释",
-		"u_maxconn": "大多数浏览器限制为 6，但 Firefox 允许你通过 <code>connections-per-server</code> 在 <code>about:config</code> 中提高限制",
-		"u_tu": '<p class="warn">警告：启用了 turbo，<span>&nbsp;客户端可能无法检测和恢复不完整的上传；查看 turbo 按钮工具提示</span></p>',
-		"u_ts": '<p class="warn">警告：启用了 turbo，<span>&nbsp;搜索结果可能不正确；查看 turbo 按钮工具提示</span></p>',
-		"u_turbo_c": "服务器配置中禁用了 turbo",
-		"u_turbo_g": "禁用 turbo，因为你在此卷中没有\n目录列表权限",
-		"u_life_cfg": '自动删除时间为 <input id="lifem" p="60" /> 分钟（或 <input id="lifeh" p="3600" /> 小时）',
-		"u_life_est": '上传将在 <span id="lifew" tt="本地时间">---</span> 删除',
-		"u_life_max": '此文件夹强制执行\n最大寿命为 {0}',
-		"u_unp_ok": '允许取消发布 {0}',
-		"u_unp_ng": '取消发布将不被允许',
-		"ue_ro": '你对这个文件夹的访问是只读的\n\n',
-		"ue_nl": '你当前未登录',
-		"ue_la": '你当前以 "{0}" 登录',
-		"ue_sr": '你当前处于文件搜索模式\n\n通过点击大搜索按钮旁边的放大镜 🔎 切换到上传模式，然后重试上传\n\n抱歉',
-		"ue_ta": '尝试再次上传，现在应该能正常工作',
-		"ue_ab": "这份文件正在上传到另一个文件夹，必须完成该上传后，才能将文件上传到其他位置。\n\n您可以通过左上角的🧯中止并忘记该上传。", //m
-		"ur_1uo": "成功：文件上传成功",
-		"ur_auo": "成功：所有 {0} 个文件上传成功",
-		"ur_1so": "成功：文件在服务器上找到",
-		"ur_aso": "成功：所有 {0} 个文件在服务器上找到",
-		"ur_1un": "上传失败，抱歉",
-		"ur_aun": "所有 {0} 个上传失败，抱歉",
-		"ur_1sn": "文件未在服务器上找到",
-		"ur_asn": "这些 {0} 个文件未在服务器上找到",
-		"ur_um": "完成；\n{0} 个上传成功，\n{1} 个上传失败，抱歉",
-		"ur_sm": "完成；\n{0} 个文件在服务器上找到，\n{1} 个文件未在服务器上找到",
-
-		"lang_set": "刷新以使更改生效？",
-	},
 };
 
-var LANGS = ["eng", "nor", "chi"];
+var LANGN = [
+	["eng", "English"],
+	["nor", "Norsk"],
+	["chi", "中文"],
+	["cze", "Čeština"],
+	["deu", "Deutsch"],
+	["epo", "Esperanto"],
+	["fin", "Suomi"],
+	["fra", "français"],
+	["grc", "Ελληνικά"],
+	["hun", "Magyar"],
+	["ita", "Italiano"],
+	["jpn", "日本語"],
+	["kor", "한국어"],
+	["nld", "Nederlands"],
+	["nno", "Nynorsk"],
+	["pol", "Polski"],
+	["por", "Português"],
+	["rus", "Русский"],
+	["spa", "Español"],
+	["swe", "Svenska"],
+	["tur", "Türkçe"],
+	["ukr", "Українська"],
+	["vie", "Tiếng Việt"],
+];
 
 if (window.langmod)
 	langmod();
 
-for (var a = LANGS.length; a > 0;)
-	if (!Ls[LANGS[--a]])
-		LANGS.splice(a, 1);
+var L = Ls[lang] || Ls.eng, LANGS = [];
+for (var a = 0; a < LANGN.length; a++)
+	LANGS.push(LANGN[a][0]);
 
-var L = Ls[sread("cpp_lang", LANGS) || lang] ||
-			Ls.eng || Ls.nor || Ls.chi;
+if (window.glang && navigator.languages && !/\bcplng=/.test(document.cookie))
+	(function() {
+		var lmap = [
+			["eng", /^en/i],
+			["nor", /^n[ob]/i],
+			["chi", /^zh-cn/i],
+			["cze", /^cs/i],
+			["deu", /^de/i],
+			["epo", /^eo/i],
+			["fin", /^fi/i],
+			["fra", /^fr/i],
+			["grc", /^el/i],
+			["hun", /^hu/i],
+			["ita", /^it/i],
+			["jpn", /^ja/i],
+			["kor", /^ko/i],
+			["nld", /^nl/i],
+			["nno", /^nn/i],
+			["pol", /^pl/i],
+			["por", /^pt/i],
+			["rus", /^ru/i],
+			["spa", /^es/i],
+			["swe", /^sv/i],
+			["tur", /^tr/i],
+			["ukr", /^uk/i],
+			["vie", /^vi/i],
+		];
+		for (var a = 0; a < navigator.languages.length; a++) {
+			for (var b = 0; b < lmap.length; b++) {
+				var n = lmap[b][0];
+				if (!lmap[b][1].test(navigator.languages[a]) || !has(LANGS, n))
+					continue;
 
+				if (Ls[n]) {
+					lang = n;
+					L = Ls[n];
+					return;
+				}
+				if (window.stop)
+					window.stop();
+				document.body.innerHTML = 'Loading ' + n;
+				setck("cplng=" + n, location.reload.bind(location));
+				crashed = true;
+				throw 1;
+			}
+		}
+	})();
+
+
+function langtest() {
+	var n = LANGS.length - 1;
+	for (var a = 1; a < LANGS.length; a++)
+		import_js(SR + '/.cpr/w/tl/' + LANGS[a] + '.js', function () { if (!--n) langtest2(); });
+}
+function langtest2() {
 for (var a = 0; a < LANGS.length; a++) {
+	if (!Ls[LANGS[a]]) continue;
 	for (var b = a + 1; b < LANGS.length; b++) {
+		if (!Ls[LANGS[b]]) continue;
 		var i1 = Object.keys(Ls[LANGS[a]]).length > Object.keys(Ls[LANGS[b]]).length ? a : b,
 			i2 = i1 == a ? b : a,
 			t1 = Ls[LANGS[i1]],
 			t2 = Ls[LANGS[i2]];
 
 		for (var k in t1)
-			if (!t2[k]) {
+			if (!t2[k] && !/^ht_.5$/.test(k)) {
 				console.log("E missing TL", LANGS[i2], k);
 				t2[k] = t1[k];
 			}
 	}
 }
+}
+langtest2();
 
-if (!has(LANGS, lang))
+
+
+if (!Ls[lang])
 	alert('unsupported --lang "' + lang + '" specified in server args;\nplease use one of these: ' + LANGS);
 
 modal.load();
@@ -1923,7 +802,7 @@ modal.load();
 ebi('ops').innerHTML = (
 	'<a href="#" id="opa_x" data-dest="" tt="' + L.ot_close + '">--</a>' +
 	'<a href="#" id="opa_srch" data-perm="read" data-dep="idx" data-dest="search" tt="' + L.ot_search + '">🔎</a>' +
-	(have_del ? '<a href="#" id="opa_del" data-dest="unpost" tt="' + L.ot_unpost + '">🧯</a>' : '') +
+	(have_del ? '<a href="#" id="opa_del" data-perm="write" data-dest="unpost" tt="' + L.ot_unpost + '">🧯</a>' : '') +
 	'<a href="#" id="opa_up" data-dest="up2k">🚀</a>' +
 	'<a href="#" id="opa_bup" data-perm="write" data-dest="bup" tt="' + L.ot_bup + '">🎈</a>' +
 	'<a href="#" id="opa_mkd" data-perm="write" data-dest="mkdir" tt="' + L.ot_mkdir + '">📂</a>' +
@@ -2097,25 +976,54 @@ ebi('op_cfg').innerHTML = (
 	'		<a id="griden" class="tgl btn" href="#" tt="' + L.wt_grid + '">' + L.ct_grid + '</a>\n' +
 	'		<a id="thumbs" class="tgl btn" href="#" tt="' + L.ct_thumb + '</a>\n' +
 	'		<a id="csel" class="tgl btn" href="#" tt="' + L.ct_csel + '</a>\n' +
+	'		<a id="dsel" class="tgl btn" href="#" tt="' + L.ct_dsel + '</a>\n' +
+	'		<a id="dlni" class="tgl btn" href="#" tt="' + L.ct_dl + '</a>\n' +
 	'		<a id="ihop" class="tgl btn" href="#" tt="' + L.ct_ihop + '</a>\n' +
 	'		<a id="dotfiles" class="tgl btn" href="#" tt="' + L.ct_dots + '</a>\n' +
 	'		<a id="qdel" class="tgl btn" href="#" tt="' + L.ct_qdel + '</a>\n' +
 	'		<a id="dir1st" class="tgl btn" href="#" tt="' + L.ct_dir1st + '</a>\n' +
 	'		<a id="nsort" class="tgl btn" href="#" tt="' + L.ct_nsort + '</a>\n' +
+	'		<a id="utctid" class="tgl btn" href="#" tt="' + L.ct_utc + '</a>\n' +
 	'		<a id="ireadme" class="tgl btn" href="#" tt="' + L.ct_readme + '</a>\n' +
 	'		<a id="idxh" class="tgl btn" href="#" tt="' + L.ct_idxh + '</a>\n' +
 	'		<a id="sbars" class="tgl btn" href="#" tt="' + L.ct_sbars + '</a>\n' +
 	'	</div>\n' +
 	'</div>\n' +
 	'<div>\n' +
+	'	<h3>' + L.cl_gauto + '</h3>\n' +
+	'	<div>\n' +
+	'		<a id="gauto" class="tgl btn" href="#" tt="' + L.tt_gauto + '">' + L.enable + '</a>\n' +
+	'		<input type="text" id="ga_thresh" value="" ' + NOAC + ' style="width:1.5em" tt="' + L.tt_gathr + '" />' +
+	'	</div>\n' +
+	'</div>\n' +
+	'<div>\n' +
+	'	<h3>' + L.cl_hfsz + '</h3>\n' +
+	'	<div><select id="fszfmt">\n' +
+	'		<option value="0">0 ┃ 2345678</option>\n' +
+	'		<option value="1">1 ┃ 2 345 678</option>\n' +
+	'		<option value="2">2- ┃ 2.24 M /1024</option>\n' +
+	'		<option value="2c">2c ┃ 2.24 M /1024</option>\n' +
+	'		<option value="3">3- ┃ 2.2 M /1024</option>\n' +
+	'		<option value="3c">3c ┃ 2.2 M /1024</option>\n' +
+	'		<option value="4">4- ┃ 2.24 Mi /1024</option>\n' +
+	'		<option value="4c">4c ┃ 2.24 Mi /1024</option>\n' +
+	'		<option value="5">5- ┃ 2.2 Mi /1024</option>\n' +
+	'		<option value="5c">5c ┃ 2.2 Mi /1024</option>\n' +
+	'		<option value="6">6- ┃ 2.35 MB /1000</option>\n' +
+	'		<option value="6c">6c ┃ 2.35 MB /1000</option>\n' +
+	'		<option value="7">7- ┃ 2.3 MB /1000</option>\n' +
+	'		<option value="7c">7c ┃ 2.3 MB /1000</option>\n' +
+	'		<option value="fuzzy">fuzzy</option>\n' +
+	'	</select></div>\n' +
+	'</div>\n' +
+	'<div>\n' +
 	'	<h3>' + L.cl_themes + '</h3>\n' +
-	'	<div id="themes">\n' +
+	'	<div><select id="themes"></select></div>\n' +
 	'	</div>\n' +
 	'</div>\n' +
 	'<div>\n' +
 	'	<h3>' + L.cl_langs + '</h3>\n' +
-	'	<div id="langs">\n' +
-	'	</div>\n' +
+	'	<div><select id="langs"></select></div>\n' +
 	'</div>\n' +
 	(have_zip ? (
 		'<div><h3>' + L.cl_ziptype + '</h3><div id="arc_fmt"></div></div>\n'
@@ -2162,7 +1070,8 @@ ebi('op_cfg').innerHTML = (
 	'		</td>\n' +
 	'	</div>\n' +
 	'</div>\n' +
-	'<div><h3>' + L.cl_keytype + '</h3><div id="key_notation"></div></div>\n' +
+	'<div><h3>' + L.cl_keytype + '</h3><div><select id="key_notation"></select></div></div>\n' +
+	(!MOBILE ? '<div><h3>' + L.cl_rcm + '</h3><div><a id="rcm_en" class="tgl btn" href="#" tt="' + L.cdt_ren + '</a><a id="rcm_db" class="tgl btn" href="#" tt="' + L.cdt_rdb + '</a></div></div>' : '') +
 	'<div><h3>' + L.cl_hiddenc + ' &nbsp;' + (MOBILE ? '<a href="#" id="hcolsh">' + L.cl_hidec + '</a> / ' : '') + '<a href="#" id="hcolsr">' + L.cl_reset + '</a></h3><div id="hcols"></div></div>'
 );
 
@@ -2192,6 +1101,35 @@ QS('#op_mkdir input[type="submit"]').value = L.ab_mkdir;
 QS('#op_new_md input[type="submit"]').value = L.ab_mkdoc;
 QS('#op_msg input[type="submit"]').value = L.ab_msg;
 
+// right-click menu
+ebi('rcm').innerHTML = (
+	'<a href="#" id="ropn">' + L.rc_opn + '</a>' +
+	'<a href="#" id="rply">' + L.rc_ply + '</a>' +
+	'<a href="#" id="rpla">' + L.rc_pla + '</a>' +
+	'<a href="#" id="rtxt">' + L.rc_txt + '</a>' +
+	'<a href="#" id="rmd">' + L.rc_md + '</a>' +
+	'<div id="rs1" class="sep"></div>' +
+	'<a href="#" id="rcpl">' + L.rc_cpl + '</a>' +
+	'<a href="#" id="rdl">' + L.rc_dl + '</a>' +
+	(have_zip ?
+		'<a href="#" id="rzip">' + L.rc_zip + '</a>'
+	: '') +
+	'<div id="rs2" class="sep"></div>' +
+	(have_del ? '<a href="#" id="rdel">' + L.rc_del + '</a>' : '') +
+	(have_mv ? '<a href="#" id="rcut">' + L.rc_cut + '</a>' : '') +
+	'<a href="#" id="rcpy">' + L.rc_cpy + '</a>' +
+	(has(perms, "write") ?
+		'<a href="#" id="rpst">' + L.rc_pst + '</a>' +
+		(have_mv ? '<a href="#" id="rrnm">' + L.rc_rnm + '</a>' : '') +
+		'<div id="rs3" class="sep"></div>' +
+		'<a href="#" id="rnfo">' + L.rc_nfo + '</a>' +
+		'<a href="#" id="rnfi">' + L.rc_nfi + '</a>'
+	: '') +
+	'<div id="rs4" class="sep"></div>' +
+	'<a href="#" id="rsal">' + L.rc_sal + '</a>' +
+	'<a href="#" id="rsin">' + L.rc_sin + '</a>' +
+	'<a id="rshr" href="#"></a>'
+);
 
 (function () {
 	var ops = QSA('#ops>a');
@@ -2281,22 +1219,29 @@ function read_sbw() {
 onresize100.add(read_sbw, true);
 
 
-var have_webp = sread('have_webp');
-(function () {
-	if (have_webp !== null)
+function check_image_support(format, uri) {
+	var cached = window['have_' + format] = sread('have_' + format);
+	if (cached !== null)
 		return;
 
 	var img = new Image();
 	img.onload = function () {
-		have_webp = img.width > 0 && img.height > 0;
-		swrite('have_webp', 'ya');
+		window['have_' + format] = img.width > 0 && img.height > 0;
+		swrite('have_' + format, 'ya');
 	};
 	img.onerror = function () {
-		have_webp = false;
-		swrite('have_webp', '');
+		window['have_' + format] = false;
+		swrite('have_' + format, '');
 	};
-	img.src = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
-})();
+	img.src = uri;
+}
+check_image_support('webp', "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==");
+check_image_support('jxl', "data:image/jxl;base64,/woIAAAMABKIAgC4AF3lEgA=");
+
+
+var img_re = APPLE ?
+	/\.(a?png|avif|bmp|gif|hei[cf]s?|jpe?g|jfif|svg|webp|webm|mkv|mp4|m4v|mov)(\?|$)/i :
+	/\.(a?png|avif|bmp|gif|jpe?g|jfif|svg|webp|webm|mkv|mp4|m4v|mov)(\?|$)/i;
 
 
 function set_files_html(html) {
@@ -2323,10 +1268,36 @@ var ACtx = !IPHONE && (window.AudioContext || window.webkitAudioContext),
 	hash0 = location.hash,
 	sloc0 = '' + location,
 	noih = /[?&]v\b/.exec(sloc0),
+	fullui = /[?&]fullui\b/.exec(sloc0),
+	nonav = !fullui && (/[?&]nonav\b/.exec(sloc0) || window.ui_nonav),
+	notree = !fullui && (/[?&]notree\b/.exec(sloc0) || window.ui_notree || nonav),
+	dbg_kbd = /[?&]dbgkbd\b/.exec(sloc0),
+	abrt_key = "",
+	can_shr = false,
+	in_shr = false,
 	rtt = null,
+	srvinf = "",
 	ldks = [],
 	dks = {},
 	dk, mp;
+
+
+var x = '';
+if (!fullui) {
+	if (window.ui_nombar || /[?&]nombar\b/.exec(sloc0)) x += '#ops,';
+	if (window.ui_noacci || /[?&]noacci\b/.exec(sloc0)) x += '#acc_info,';
+	if (window.ui_nosrvi || /[?&]nosrvi\b/.exec(sloc0)) x += '#srv_info,#srv_info2,';
+	if (window.ui_nocpla || /[?&]nocpla\b/.exec(sloc0)) x += '#goh,';
+	if (window.ui_nolbar || /[?&]nolbar\b/.exec(sloc0)) x += '#wfp,';
+	if (window.ui_noctxb || /[?&]noctxb\b/.exec(sloc0)) x += '#wtoggle,';
+	if (window.ui_norepl || /[?&]norepl\b/.exec(sloc0)) x += '#repl,';
+}
+if (x)
+	document.head.appendChild(mknod('style', '', x.slice(0, -1) + '{display:none!important}'));
+
+
+if (location.pathname.indexOf('//') === 0)
+	hist_replace(location.pathname.replace(/^\/+/, '/'));
 
 
 if (window.og_fn) {
@@ -2410,6 +1381,8 @@ var mpl = (function () {
 			'<a href="#" id="ac2owa" class="tgl btn" tt="' + L.mt_c2owa + '</a>' +
 			'<a href="#" id="ac2caf" class="tgl btn" tt="' + L.mt_c2caf + '</a>' +
 			'<a href="#" id="ac2mp3" class="tgl btn" tt="' + L.mt_c2mp3 + '</a>' +
+			'<a href="#" id="ac2flac" class="tgl btn" tt="' + L.mt_c2flac + '</a>' +
+			'<a href="#" id="ac2wav" class="tgl btn" tt="' + L.mt_c2wav + '</a>' +
 			'</div></div>'
 		) : '') +
 
@@ -2419,6 +1392,7 @@ var mpl = (function () {
 
 		'<div><h3 id="h_drc">' + L.ml_drc + '</h3><div id="audio_drc"></div></div>' +
 		'<div><h3>' + L.ml_eq + '</h3><div id="audio_eq"></div></div>' +
+		'<div><h3>' + L.ml_ss + '</h3><div id="audio_ss"></div></div>' +
 		'');
 
 	var r = {
@@ -2426,6 +1400,7 @@ var mpl = (function () {
 		"os_ctl": bcfg_get('au_os_ctl', have_mctl) && have_mctl,
 		'traversals': 0,
 		'm3ut': '#EXTM3U\n',
+		'np': [{'file': 'nothing'}, ['file']],
 	};
 	bcfg_bind(r, 'one', 'au_one', false, function (v) {
 		if (mp.au)
@@ -2527,13 +1502,14 @@ var mpl = (function () {
 			c = false;
 		else if (/\.(wav|flac)$/i.exec(cs))
 			c = r.ac_flac;
-		else if (/\.(aac|m4a)$/i.exec(cs))
+		else if (/\.(aac|m4[abr])$/i.exec(cs))
 			c = r.ac_aac;
 		else if (/\.(oga|ogg|opus)$/i.exec(cs) && (!can_ogg || mpl.ac2 == 'mp3'))
 			c = true;
 		else if (re_au_native.exec(cs))
 			c = false;
 
+		// allow flac->flac (bitstream fixup)
 		if (!c)
 			return url;
 
@@ -2550,8 +1526,9 @@ var mpl = (function () {
 			return;
 		}
 
-		var dv = can_ogg ? 'opus' : can_caf ? 'caf' : 'mp3',
-			fmts = ['opus', 'owa', 'caf', 'mp3'],
+		var dv = can_ogg ? 'opus' :
+				can_caf ? 'caf' : 'mp3',
+			fmts = ['opus', 'owa', 'caf', 'mp3', 'flac', 'wav'],
 			btns = [];
 
 		if (v === dv)
@@ -2561,7 +1538,8 @@ var mpl = (function () {
 
 		if ((v == 'opus' && !can_ogg) ||
 			(v == 'caf' && !can_caf) ||
-			(v == 'owa' && !can_owa))
+			(v == 'owa' && !can_owa) ||
+			(v == 'flac' && !can_flac))
 			toast.warn(15, L.mt_c2ng);
 
 		if (v == 'owa' && IPHONE)
@@ -2576,6 +1554,8 @@ var mpl = (function () {
 		}
 		if (!IPHONE)
 			btns[1].style.display = btns[2].style.display = 'none';
+		btns[4].style.display = have_c2flac ? '' : 'none';
+		btns[5].style.display = have_c2wav ? '' : 'none';
 
 		if (v)
 			swrite('acode2', v);
@@ -2587,6 +1567,9 @@ var mpl = (function () {
 			clmod(btns[a], 'on', fmts[a] == v)
 
 		r.ac2 = v;
+		ebi('ac_flac').setAttribute('tt', L.mt_cflac.split('"')[0].format(v));
+		ebi('ac_aac').setAttribute('tt', L.mt_caac.split('"')[0].format(v));
+		ebi('ac_oth').setAttribute('tt', L.mt_coth.split('"')[0].format(v));
 	};
 
 	r.pp = function () {
@@ -2614,7 +1597,7 @@ var mpl = (function () {
 		if (!r.os_ctl || !mp.au)
 			return;
 
-		var np = get_np()[0],
+		var np = mpl.np[0],
 			fns = np.file.split(' - '),
 			artist = (np.circle && np.circle != np.artist ? np.circle + ' // ' : '') + (np.artist || (fns.length > 1 ? fns[0] : '')),
 			title = np.title || fns.pop(),
@@ -2638,10 +1621,8 @@ var mpl = (function () {
 				}
 			}
 
-			if (cover) {
-				cover = addq(cover, 'th=j');
-				tags.artwork = [{ "src": cover, type: "image/jpeg" }];
-			}
+			cover = addq(cover || mp.au.osrc, 'th=j');
+			tags.artwork = [{ "src": cover, type: "image/jpeg" }];
 		}
 
 		ebi('np_circle').textContent = np.circle || '';
@@ -2699,11 +1680,13 @@ var mpl = (function () {
 var za,
 	can_ogg = true,
 	can_owa = false,
+	can_flac = false,
 	can_caf = APPLE && !/ OS ([1-9]|1[01])_/.test(UA);
 try {
 	za = new Audio();
 	can_ogg = za.canPlayType('audio/ogg; codecs=opus') === 'probably';
 	can_owa = za.canPlayType('audio/webm; codecs=opus') === 'probably';
+	can_flac = za.canPlayType('audio/flac') === 'probably';
 	can_caf = za.canPlayType('audio/x-caf') && can_caf; //'maybe'
 }
 catch (ex) { }
@@ -2716,8 +1699,9 @@ mpl.init_ac2();
 
 
 var re_m3u = /\.(m3u8?)$/i;
-var re_au_native = (can_ogg || have_acode) ? /\.(aac|flac|m4a|mp3|oga|ogg|opus|wav)$/i : /\.(aac|flac|m4a|mp3|wav)$/i,
-	re_au_all = /\.(aac|ac3|aif|aiff|alac|alaw|amr|ape|au|dfpwm|dts|flac|gsm|it|itgz|itxz|itz|m4a|mdgz|mdxz|mdz|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|oga|ogg|okt|opus|ra|s3m|s3gz|s3xz|s3z|tak|tta|ulaw|wav|wma|wv|xm|xmgz|xmxz|xmz|xpk|3gp|asf|avi|flv|m4v|mkv|mov|mp4|mpeg|mpeg2|mpegts|mpg|mpg2|nut|ogm|ogv|rm|ts|vob|webm|wmv)$/i;
+var re_au_native = (can_ogg || have_acode) ? /\.(aac|flac|m4[abr]|mp3|oga|ogg|opus|wav)$/i : /\.(aac|flac|m4[abr]|mp3|wav)$/i,
+	re_au_vid = /\.(3gp|asf|avi|flv|m4v|mkv|mov|mp4|mpeg|mpeg2|mpegts|mpg|mpg2|nut|ogm|ogv|rm|ts|vob|webm|wmv)$/i,
+	re_au_all = /\.(aac|ac3|aif|aiff|alac|alaw|amr|ape|au|b[cfr]stm|dfpwm|dts|flac|gsm|it|itgz|itxz|itz|m4[abr]|mdgz|mdxz|mdz|mo3|mod|mp2|mp3|mpc|mptm|mt2|mulaw|oga|ogg|okt|opus|ra|s3m|s3gz|s3xz|s3z|tak|tta|ulaw|wav|wma|wv|xm|xmgz|xmxz|xmz|xpk|3gp|asf|avi|flv|m4v|mkv|mov|mp4|mpeg|mpeg2|mpegts|mpg|mpg2|nut|ogm|ogv|rm|ts|vob|webm|wmv)$/i;
 
 
 // extract songs + add play column
@@ -2745,10 +1729,11 @@ function MPlayer() {
 			fn = url.split('?')[0];
 
 		if (re_audio.exec(fn)) {
-			var tid = link.getAttribute('id');
+			var tid = link.getAttribute('id'),
+				txt = re_au_vid.exec(fn) ? '(🎧)' : L.mb_play;
 			r.order.push(tid);
 			r.tracks[tid] = url;
-			tds[0].innerHTML = '<a id="a' + tid + '" href="#a' + tid + '" class="play">' + L.mb_play + '</a></td>';
+			tds[0].innerHTML = '<a id="a' + tid + '" href="#a' + tid + '" class="play">' + txt + '</a></td>';
 			ebi('a' + tid).onclick = ev_play;
 			clmod(trs[a], 'au', 1);
 		}
@@ -2797,7 +1782,9 @@ function MPlayer() {
 			if (!tid || tid.indexOf('af-') !== 0)
 				continue;
 
-			order.push(tid.slice(1));
+			tid = tid.slice(1);
+			if (r.tracks[tid]) 
+				order.push(tid);
 		}
 		r.order = order;
 		r.shuffle();
@@ -2809,6 +1796,7 @@ function MPlayer() {
 	r.ftimer = null;
 	r.fade_in = function () {
 		r.nopause();
+		start_actx();
 		r.fvol = 0;
 		r.fdir = 0.025 * r.vol * (CHROME ? 1.5 : 1);
 		if (r.au) {
@@ -2819,6 +1807,7 @@ function MPlayer() {
 		}
 	};
 	r.fade_out = function () {
+		mpss.stop();
 		r.fvol = r.vol;
 		r.fdir = -0.05 * r.vol * (CHROME ? 2 : 1);
 		r.ftid = r.au.tid;
@@ -2845,8 +1834,10 @@ function MPlayer() {
 			if (isNum(t))
 				r.au.currentTime = Math.max(t, 0);
 		}
-		else if (r.fvol > r.vol)
+		else if (r.fvol > r.vol) {
 			r.fvol = r.vol;
+			mpss.go();
+		}
 		else
 			done = false;
 
@@ -2918,7 +1909,7 @@ function MPlayer() {
 
 		// breaks touchbar-macs
 		console.log('init fau');
-		r.fau = new Audio(SR + '/.cpr/deps/busy.mp3?_=' + TS);
+		r.fau = new Audio(SR + '/.cpr/w/deps/busy.mp3?_=' + TS);
 		r.fau.loop = true;
 		r.fau.play();
 	};
@@ -2956,12 +1947,6 @@ function ft2dict(tr, skip) {
 	}
 	return [rt, rv, rh, ra];
 }
-
-
-function get_np() {
-	var tr = QS('#files tr.play');
-	return ft2dict(tr, { 'up_ip': 1 });
-};
 
 
 // toggle player widget
@@ -3021,9 +2006,8 @@ var widget = (function () {
 			ck = irc ? '06' : '',
 			cv = irc ? '07' : '',
 			m = ck + 'np: ',
-			npr = get_np(),
-			npk = npr[1],
-			np = npr[0];
+			npk = mpl.np[1],
+			np = mpl.np[0];
 
 		for (var a = 0; a < npk.length; a++)
 			m += (npk[a] == 'file' ? '' : npk[a]).replace(/^\./, '') + '(' + cv + np[npk[a]] + ck + ') // ';
@@ -3485,6 +2469,10 @@ function song_skip(n, dirskip) {
 }
 function next_song(e) {
 	ev(e);
+	if (QS('.dumb_loader_thing')) {
+		treectl.ls_cb = next_song;
+		return;
+	}
 	if (mp.order.length) {
 		var dirskip = mpl.traversals;
 		mpl.traversals = 0;
@@ -3518,6 +2506,10 @@ function prev_song(e) {
 	if (mp.au && !mp.au.paused && mp.au.currentTime > 3)
 		return seek_au_sec(0);
 
+	if (QS('.dumb_loader_thing')) {
+		treectl.ls_cb = function () { song_skip(-1); };
+		return;
+	}
 	return song_skip(-1);
 }
 function dl_song() {
@@ -3620,7 +2612,7 @@ function mpause(e) {
 				return true;
 
 			dist *= -1;
-			mp.setvol(mp.vol + dist / 500);
+			mp.setvol(Math.round((mp.vol + dist / 500) * 100) / 100 );
 			vbar.draw();
 			ev(e);
 		};
@@ -3714,6 +2706,9 @@ var mpui = (function () {
 						if (mpl.prescan_evp == evp)
 							throw "evp match";
 
+						if (treectl.trunc)
+							return treectl.showmore(99999, repreload);
+
 						if (mpl.traversals++ > 4) {
 							mpl.prescan_evp = null;
 							toast.inf(10, L.mm_nof);
@@ -3781,11 +2776,14 @@ var afilt = (function () {
 	var r = {
 		"eqen": false,
 		"drcen": false,
+		"ssen": false,
 		"bands": [31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000],
 		"gains": [4, 3, 2, 1, 0, 0, 1, 2, 3, 4],
 		"drcv": [-24, 30, 12, 0.01, 0.25],
 		"drch": ['tresh', 'knee', 'ratio', 'atk', 'rls'],
 		"drck": ['threshold', 'knee', 'ratio', 'attack', 'release'],
+		"sscl": [L.mt_ssvt, L.mt_ssts, L.mt_sste, L.mt_sssm],
+		"sscv": [1, 5, 5, 5.0],
 		"drcn": null,
 		"filters": [],
 		"filterskip": [],
@@ -3797,7 +2795,10 @@ var afilt = (function () {
 	};
 
 	function setvis(vis) {
-		ebi('audio_eq').parentNode.style.display = ebi('audio_drc').parentNode.style.display = (vis ? '' : 'none');
+		ebi('audio_eq').parentNode.style.display =
+		ebi('audio_drc').parentNode.style.display =
+		ebi('audio_ss').parentNode.style.display =
+		(vis ? '' : 'none');
 	}
 
 	setvis(ACtx);
@@ -3860,6 +2861,8 @@ var afilt = (function () {
 			r.gains = gains;
 
 		r.drcv = jread('au_drcv', r.drcv);
+		r.sscv = jread('au_sscv', r.sscv);
+		mpss.load();
 	}
 	catch (ex) { }
 
@@ -3877,6 +2880,7 @@ var afilt = (function () {
 	};
 
 	r.stop = function () {
+		mpss.stop();
 		if (r.filters.length)
 			for (var a = 0; a < r.filters.length; a++)
 				r.filters[a].disconnect();
@@ -3904,10 +2908,12 @@ var afilt = (function () {
 			bcfg_set('au_eq', r.eqen = false);
 			bcfg_set('au_drc', r.drcen = false);
 		}
-		else if (v === true && r.drcen && !r.eqen)
+		else if (v === true && (r.drcen || r.ssen) && !r.eqen)
 			bcfg_set('au_eq', r.eqen = true);
-		else if (v === false && !r.eqen)
+		else if (v === false && !r.eqen) {
 			bcfg_set('au_drc', r.drcen = false);
+			bcfg_set('au_ss', r.ssen = false);
+		}
 
 		r.drcn = null;
 
@@ -3924,6 +2930,9 @@ var afilt = (function () {
 		au.id = au.id || Date.now();
 		mp.acs = r.acst[au.id] = r.acst[au.id] || actx.createMediaElementSource(au);
 
+		if (r.ssen)
+			add_ss();
+
 		if (r.eqen)
 			add_eq();
 
@@ -3937,6 +2946,15 @@ var afilt = (function () {
 
 		mp.acs.connect(r.filters.length ?
 			r.filters[r.filters.length - 1] : actx.destination);
+
+		if (!au.paused)
+			mpss.go();
+	}
+
+	function add_ss() {
+		r.filters.push(afilt.ssg = actx.createGain());
+		r.filters.push(afilt.ssa = actx.createAnalyser());
+		afilt.ssa.fftSize = 256;
 	}
 
 	function add_eq() {
@@ -4089,6 +3107,29 @@ var afilt = (function () {
 		clmod(this, 'err', err);
 	}
 
+	function adj_ss() {
+		var err = false;
+		try {
+			var n = this.getAttribute('k'),
+			ov = r.sscv[n],
+			vs = this.value,
+			v = parseFloat(vs);
+			if (!isNum(v) || v + '' != vs)
+				throw new Error('inval v');
+
+			if (v == ov)
+				return;
+
+			r.sscv[n] = v;
+			jwrite('au_sscv', r.sscv);
+			mpss.load();
+		}
+		catch (ex) {
+			err = true;
+		}
+		clmod(this, 'err', err);
+	}
+
 	function eq_mod(e) {
 		ev(e);
 		adj_band(this, 0);
@@ -4148,6 +3189,19 @@ var afilt = (function () {
 	html += h2.join('\n') + '</tr><table>';
 	ebi('audio_drc').innerHTML = html;
 
+	h2 = [];
+	html = ['<table><tr><td rowspan="2">',
+		'<a id="au_ss" class="tgl btn" href="#" tt="' + L.mt_ss + '">' + L.enable + '</a></td>'];
+
+	for (var a = 0; a < r.sscl.length; a++) {
+		html.push('<td tt="' + r.sscl[a] + '</td>');
+		h2.push('<td><input type="text" class="ssconf_v" ' + NOAC + ' k="' + a + '" value="' + r.sscv[a] + '" /></td>');
+	}
+
+	html = html.join('\n') + '</tr><tr>';
+	html += h2.join('\n') + '</tr><table>';
+	ebi('audio_ss').innerHTML = html;
+
 	var stp = QSA('a.eq_step');
 	for (var a = 0, aa = stp.length; a < aa; a++)
 		stp[a].onclick = eq_step;
@@ -4161,8 +3215,13 @@ var afilt = (function () {
 	for (var a = 0; a < txt.length; a++)
 		txt[a].oninput = txt[a].onkeydown = adj_drc;
 
+	txt = QSA('input.ssconf_v');
+	for (var a = 0; a < txt.length; a++)
+		txt[a].oninput = txt[a].onkeydown = adj_ss;
+
 	bcfg_bind(r, 'eqen', 'au_eq', false, r.apply);
 	bcfg_bind(r, 'drcen', 'au_drc', false, r.apply);
+	bcfg_bind(r, 'ssen', 'au_ss', false, r.apply);
 
 	r.draw();
 	return r;
@@ -4190,8 +3249,8 @@ function play(tid, is_ev, seek) {
 	}
 
 	if (tn >= mp.order.length) {
-		if (mpl.pb_mode == 'stop')
-			return;
+		if (treectl.trunc)
+			return treectl.showmore(99999, next_song);
 
 		if (mpl.pb_mode == 'loop' || ebi('unsearch')) {
 			tn = 0;
@@ -4200,6 +3259,7 @@ function play(tid, is_ev, seek) {
 			treectl.ls_cb = next_song;
 			return tree_neigh(1);
 		}
+		else return;
 	}
 
 	if (tn < 0) {
@@ -4210,6 +3270,7 @@ function play(tid, is_ev, seek) {
 			treectl.ls_cb = last_song;
 			return tree_neigh(-1);
 		}
+		else return;
 	}
 
 	tid = mp.order[tn];
@@ -4264,9 +3325,12 @@ function play(tid, is_ev, seek) {
 	for (var a = 0, aa = trs.length; a < aa; a++)
 		clmod(trs[a], 'play');
 
-	var oid = 'a' + tid;
-	clmod(ebi(oid), 'act', 1);
-	clmod(ebi(oid).closest('tr'), 'play', 1);
+	var oid = 'a' + tid,
+		t_a = ebi(oid),
+		t_tr = t_a.closest('tr');
+
+	clmod(t_a, 'act', 1);
+	clmod(t_tr, 'play', 1);
 	clmod(ebi('wtoggle'), 'np', mpl.clip);
 	clmod(ebi('wtoggle'), 'm3u', mpl.m3uen);
 	if (thegrid)
@@ -4288,17 +3352,18 @@ function play(tid, is_ev, seek) {
 		}
 
 		if (!seek && !ebi('unsearch')) {
-			var o = ebi(oid);
-			o.setAttribute('id', 'thx_js');
+			t_a.setAttribute('id', 'thx_js');
 			if (mpl.aplay)
 				sethash(oid + getsort());
-			o.setAttribute('id', oid);
+			t_a.setAttribute('id', oid);
 		}
+		mpl.np = ft2dict(t_tr, { 'up_ip': 1 });
 
 		pbar.unwave();
 		if (mpl.waves)
 			pbar.loadwaves(url.replace(/\bth=(opus|mp3)&/, '') + '&th=p');
 
+		mpss.go();
 		mpui.progress_updater();
 		pbar.onresize();
 		vbar.onresize();
@@ -4308,7 +3373,7 @@ function play(tid, is_ev, seek) {
 	catch (ex) {
 		toast.err(0, esc(L.mm_playerr + basenames(ex)));
 	}
-	clmod(ebi(oid), 'act');
+	clmod(t_a, 'act');
 	mpl.t_eplay = setTimeout(next_song, 5000);
 }
 
@@ -4360,7 +3425,7 @@ function evau_error(e) {
 			break;
 		case eplaya.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
 			err = L.mm_esupp;
-			if (/\.(aac|m4a)(\?|$)/i.exec(eplaya.rsrc) && !mpl.ac_aac) {
+			if (/\.(aac|m4[abr])(\?|$)/i.exec(eplaya.rsrc) && !mpl.ac_aac) {
 				try {
 					ebi('ac_aac').click();
 					QS('a.play.act').click();
@@ -4377,6 +3442,7 @@ function evau_error(e) {
 	var em = '' + eplaya.error.message,
 		mfile = '\n\nFile: «' + uricom_dec(eplaya.src.split('/').pop()) + '»',
 		e500 = L.mm_e500,
+		e415 = L.mm_e415,
 		e404 = L.mm_e404,
 		e403 = L.mm_e403;
 
@@ -4388,6 +3454,9 @@ function evau_error(e) {
 
 	if (em.startsWith('404: '))
 		err = e404;
+
+	if (em.startsWith('415: '))
+		err = e415;
 
 	if (em.startsWith('500: '))
 		err = e500;
@@ -4405,6 +3474,7 @@ function evau_error(e) {
 
 			err = this.status == 403 ? e403 :
 				this.status == 404 ? e404 :
+				this.status == 415 ? e415 :
 				this.status == 500 ? e500 :
 				L.mm_e5xx + this.status;
 
@@ -4567,9 +3637,11 @@ function eval_hash() {
 			d.onclick = function (e) {
 				ev(e);
 				if (a)
-					QS(treectl.hidden ? '#path a:nth-last-child(2)' : '#treeul a.hl').focus();
+					d = QS(treectl.hidden ? '#path a:nth-last-child(2)' : '#treeul a.hl');
 				else
-					QS(thegrid.en ? '#ggrid a' : '#files tbody tr[tabindex]').focus();
+					d = QS(thegrid.en ? '#ggrid a' : '#files tbody tr[tabindex]');
+				if (d)
+					d.focus();
 			};
 		})(a);
 
@@ -4837,6 +3909,22 @@ function fmt_ren(re, md, fmt) {
 }
 
 
+function enre_rw_edit() {
+	window.re_rw_edit = new RegExp('\.(' + rw_edit.replace(/,/g, '|') + ')$', 'i');
+}
+enre_rw_edit();
+
+
+function fs_abrt() {
+	toast.inf(30, L.fp_abrt);
+	fileman.sn++;
+	fileman.f.length = 0;
+	var xhr = new XHR();
+	xhr.open('POST', '/?fs_abrt=' + abrt_key, true);
+	xhr.send();
+}
+
+
 var fileman = (function () {
 	var bren = ebi('fren'),
 		bdel = ebi('fdel'),
@@ -4847,6 +3935,8 @@ var fileman = (function () {
 		t_paste,
 		r = {};
 
+	r.f = [];
+	r.sn = 1;
 	r.clip = null;
 	try {
 		r.bus = new BroadcastChannel("fileman_bus");
@@ -4872,7 +3962,7 @@ var fileman = (function () {
 			hdel = !(have_del && has(perms, 'delete')),
 			hcut = !(have_mv && has(perms, 'move')),
 			hpst = !(have_mv && has(perms, 'write')),
-			hshr = !(have_shr && acct != '*' && (has(perms, 'read') || has(perms, 'write')));
+			hshr = !can_shr || !get_evpath().indexOf(have_shr);
 
 		if (!(enren || endel || encut || enpst))
 			hren = hdel = hcut = hpst = true;
@@ -4983,7 +4073,7 @@ var fileman = (function () {
 			'<tr><td>perms</td><td class="sh_axs">',
 		];
 		for (var a = 0; a < perms.length; a++)
-			if (!has(['admin', 'move'], perms[a]))
+			if (!has(['admin', 'move', 'delete'], perms[a]))
 				html.push('<a href="#" class="tgl btn">' + perms[a] + '</a>');
 
 		if (has(perms, 'write'))
@@ -5033,7 +4123,7 @@ var fileman = (function () {
 
 		exm.onkeydown = exh.onkeydown = exd.onkeydown =
 		sh_k.onkeydown = sh_pw.onkeydown = function (e) {
-			var kc = (e.code || e.key) + '';
+			var kc = (e.key || e.code) + '';
 			if (kc.endsWith('Enter'))
 				sh_apply.click();
 		};
@@ -5123,7 +4213,8 @@ var fileman = (function () {
 
 	r.rename = function (e) {
 		ev(e);
-		var sel = msel.getsel();
+		var sel = msel.getsel(),
+			all = msel.all;
 		if (!sel.length)
 			return toast.err(3, L.fr_emore);
 
@@ -5131,10 +4222,18 @@ var fileman = (function () {
 			return toast.err(3, L.fr_eperm);
 
 		var f = [],
+			sn = ++r.sn,
 			base = vsplit(sel[0].vp)[0],
+			s2d = {},
 			mkeys;
 
+		r.f = f;
+		r.n_s = 1;
+		r.n_d = 1;
+
 		for (var a = 0; a < sel.length; a++) {
+			s2d[a] = all.indexOf(sel[a]);
+
 			var vp = sel[a].vp;
 			if (vp.endsWith('/'))
 				vp = vp.slice(0, -1);
@@ -5144,9 +4243,10 @@ var fileman = (function () {
 				return toast.err(0, esc('bug:\n' + base + '\n' + vsp[0]));
 
 			var vars = ft2dict(ebi(sel[a].id).closest('tr'));
-			mkeys = vars[1].concat(vars[2]);
+			mkeys = [".n.d", ".n.s"].concat(vars[1], vars[2]);
 
 			var md = vars[0];
+			md[".n.s"] = md[".n.d"] = 0;
 			for (var k in md) {
 				if (!md.hasOwnProperty(k))
 					continue;
@@ -5193,6 +4293,10 @@ var fileman = (function () {
 			'<tr><td>regex</td><td><input type="text" id="rn_re" ' + NOAC + ' tt="' + L.fr_re + '" placeholder="^[0-9]+[\\. ]+(.*) - (.*)" /></td></tr>',
 			'<tr><td>format</td><td><input type="text" id="rn_fmt" ' + NOAC + ' tt="' + L.fr_fmt + '" placeholder="[(artist) - ](title).(ext)" /></td></tr>',
 			'<tr><td>preset</td><td><select id="rn_pre"></select>',
+			'<tr><td>num0</td><td>',
+			'<code>n.d=</code><input type="text" id="rn_n_d" placeholder="1" ' + NOAC + ' /> &nbsp;',
+			'<code>n.s=</code><input type="text" id="rn_n_s" placeholder="1" ' + NOAC + ' />',
+			'</td></tr>',
 			'<button id="rn_pdel">❌ ' + L.fr_pdel + '</button>',
 			'<button id="rn_pnew">💾 ' + L.fr_pnew + '</button>',
 			'</td></tr>',
@@ -5240,7 +4344,7 @@ var fileman = (function () {
 				(function (a) {
 					f[a].inew.onkeydown = function (e) {
 						rn_ok(a, true);
-						var kc = (e.code || e.key) + '';
+						var kc = (e.key || e.code) + '';
 						if (kc.endsWith('Enter'))
 							return rn_apply();
 					};
@@ -5337,8 +4441,17 @@ var fileman = (function () {
 		};
 		spresets();
 
+		ebi('rn_n_s').oninput = function () {
+			r.n_s = parseInt(this.value || '1');
+			ifmt.oninput();
+		};
+		ebi('rn_n_d').oninput = function () {
+			r.n_d = parseInt(this.value || '1');
+			ifmt.oninput();
+		};
+
 		ire.onkeydown = ifmt.onkeydown = function (e) {
-			var k = (e.code || e.key) + '';
+			var k = (e.key || e.code) + '';
 
 			if (k == 'Escape' || k == 'Esc')
 				return rn_cancel();
@@ -5366,14 +4479,18 @@ var fileman = (function () {
 
 			for (var a = 0; a < f.length; a++) {
 				var m = re ? re.exec(f[a].ofn) : null,
+					d = f[a].md,
 					ok, txt = '';
+
+				d[".n.s"] = d["n.s"] = '' + (r.n_s + a);
+				d[".n.d"] = d["n.d"] = '' + (r.n_d + s2d[a]);
 
 				if (re && !m) {
 					txt = 'regex did not match';
 					ok = false;
 				}
 				else {
-					var ret = fmt_ren(m, f[a].md, fmt);
+					var ret = fmt_ren(m, d, fmt);
 					ok = ret[0];
 					txt = ret[1];
 				}
@@ -5413,7 +4530,9 @@ var fileman = (function () {
 				return rn_cancel();
 			}
 
-			toast.show('inf r', 0, esc(L.fr_busy.format(f.length, f[0].ofn)));
+			var msg = esc(L.fr_busy.format(f.length, f[0].ofn));
+			msg += '\n<a id="fs_abrt" class="btn" href="#" onclick="fs_abrt()">' + L.fs_abrt + '</a>';
+			toast.show('inf r', 0, msg);
 			var dst = base + uricom_enc(f[0].inew.value, false);
 
 			function rename_cb() {
@@ -5422,13 +4541,17 @@ var fileman = (function () {
 					toast.err(9, L.fr_efail + msg);
 					return;
 				}
+				if (r.sn != sn)
+					return modal.confirm('WARNING: the rename was aborted');
 
 				f.shift().inew.value = '( OK )';
 				return rn_apply_loop();
 			}
 
+			abrt_key = randstr(9);
+
 			var xhr = new XHR();
-			xhr.open('POST', f[0].src + '?move=' + dst, true);
+			xhr.open('POST', f[0].src + '?move=' + dst + '&akey=' + abrt_key, true);
 			xhr.onload = xhr.onerror = rename_cb;
 			xhr.send();
 		}
@@ -5436,6 +4559,7 @@ var fileman = (function () {
 
 	r.delete = function (e) {
 		var sel = msel.getsel(),
+			sn = ++r.sn,
 			vps = [];
 
 		for (var a = 0; a < sel.length; a++)
@@ -5472,6 +4596,9 @@ var fileman = (function () {
 				toast.err(9, L.fd_err + msg);
 				return;
 			}
+			if (r.sn != sn)
+				return modal.confirm('WARNING: the delete was aborted');
+
 			if (this.responseText.indexOf('deleted 0 files (and 0') + 1) {
 				toast.err(9, L.fd_none);
 				return deleter('xbd');
@@ -5586,6 +4713,12 @@ var fileman = (function () {
 		r.ccp = true;
 		r.clip = vps.slice(2);
 
+		var prefix = sread("clip_uo") || location.origin;
+		try {
+			cliptxt(prefix + r.clip.join('\n' + prefix));
+		}
+		catch (ex) {}
+
 		try {
 			vps = JSON.stringify(vps);
 			if (vps.length > 1024 * 1024)
@@ -5677,6 +4810,7 @@ var fileman = (function () {
 		var html = [
 				'<div>',
 				'<button id="rn_cancel" tt="' + L.frt_abrt + '</button>',
+				'<button id="rn_skip">⏭ ' + L.fp_skip + '</button>',
 				'<button id="rn_apply">✅ ' + L.fp_apply + '</button>',
 				' &nbsp; src: ' + esc(r.clip[0].replace(/[^/]+$/, '')),
 				'</div>',
@@ -5684,11 +4818,14 @@ var fileman = (function () {
 				'<div><table id="rn_f" class="m">',
 				'<tr><td>' + L.fr_lnew + '</td><td>' + L.fr_lold + '</td></tr>',
 			],
+			sn = ++r.sn,
 			ui = false,
 			f = [],
 			indir = [],
 			srcdir = vsplit(r.clip[0])[0],
 			links = QSA('#files tbody td:nth-child(2) a');
+
+		r.f = f;
 
 		for (var a = 0, aa = links.length; a < aa; a++)
 			indir.push(uricom_dec(vsplit(noq_href(links[a]))[1]));
@@ -5721,13 +4858,17 @@ var fileman = (function () {
 			if (!t.dst)
 				return paster();
 
-			toast.show('inf r', 0, esc((r.ccp ? L.fcp_busy : L.fp_busy).format(f.length + 1, uricom_dec(t.src))));
+			var msg = esc((r.ccp ? L.fcp_busy : L.fp_busy).format(f.length + 1, uricom_dec(t.src)));
+			msg += '\n<a id="fs_abrt" class="btn" href="#" onclick="fs_abrt()">' + L.fs_abrt + '</a>';
+			toast.show('inf r', 0, msg);
 
 			var xhr = new XHR(),
 				act = r.ccp ? '?copy=' : '?move=',
 				dst = get_evpath() + uricom_enc(t.dst);
 
-			xhr.open('POST', t.src + act + dst, true);
+			abrt_key = randstr(9);
+
+			xhr.open('POST', t.src + act + dst + '&akey=' + abrt_key, true);
 			xhr.onload = xhr.onerror = paste_cb;
 			xhr.send();
 		}
@@ -5737,6 +4878,9 @@ var fileman = (function () {
 				toast.err(9, (r.ccp ? L.fcp_err : L.fp_err) + msg);
 				return;
 			}
+			if (r.sn != sn)
+				return modal.confirm('WARNING: the paste was aborted');
+
 			paster();
 		}
 		function okgo() {
@@ -5770,11 +4914,21 @@ var fileman = (function () {
 			rn_cancel(e);
 			okgo();
 		}
+		function rn_skip(e) {
+			var o = QSA('#rn_f tr.ng');
+			for (var a = o.length - 1; a >= 0; a--) {
+				var oo = o[a].querySelector('input');
+				oo.value = '';
+				oo.oninput.call(oo);
+			}
+			rn_apply();
+		}
 		function rn_cancel(e) {
 			ev(e);
 			rui.parentNode.removeChild(rui);
 		}
 		ebi('rn_cancel').onclick = rn_cancel;
+		ebi('rn_skip').onclick = rn_skip;
 		ebi('rn_apply').onclick = rn_apply;
 
 		var first_bad = 0;
@@ -5800,7 +4954,7 @@ var fileman = (function () {
 			(function (a) {
 				var inew = ebi('rn_new_' + a);
 				inew.onkeydown = function (e) {
-					if (((e.code || e.key) + '').endsWith('Enter'))
+					if (((e.key || e.code) + '').endsWith('Enter'))
 						return rn_apply();
 				};
 				inew.oninput = function (e) {
@@ -5867,7 +5021,7 @@ var showfile = (function () {
 		'nrend': 0,
 	};
 	r.map = {
-		'.ahk': 'autohotkey',
+		'.asm': 'nasm',
 		'.bas': 'basic',
 		'.bat': 'batch',
 		'.cxx': 'cpp',
@@ -5882,6 +5036,7 @@ var showfile = (function () {
 		'.log': 'ans',
 		'.m': 'matlab',
 		'.moon': 'moonscript',
+		'.nfo': 'ans',
 		'.patch': 'diff',
 		'.ps1': 'powershell',
 		'.psm1': 'powershell',
@@ -5889,6 +5044,9 @@ var showfile = (function () {
 		'.rs': 'rust',
 		'.sh': 'bash',
 		'.service': 'systemd',
+		'.socket': 'systemd',
+		'.timer': 'systemd',
+		'.txt': 'ans',
 		'.vb': 'vbnet',
 		'.v': 'verilog',
 		'.vert': 'glsl',
@@ -5896,13 +5054,13 @@ var showfile = (function () {
 		'.yml': 'yaml'
 	};
 	r.nmap = {
-		'cmakelists.txt': 'cmake',
 		'dockerfile': 'docker'
 	};
-	var x = txt_ext + ' ans c cfg conf cpp cs css diff glsl go html ini java js json jsx kt kts latex less lisp lua makefile md nim py r rss rb ruby sass scss sql svg swift tex toml ts vhdl xml yaml zig';
+	var x = txt_ext + ' ans c cfg conf cpp cs css diff glsl go html ini java js json jsx kt kts latex less lisp lua makefile md nasm nim nix py r rss rb ruby sass scss sql svg swift tex toml ts vhdl xml yaml zig';
 	x = x.split(/ +/g);
 	for (var a = 0; a < x.length; a++)
-		r.map["." + x[a]] = x[a];
+		if (!r.map["." + x[a]])
+			r.map["." + x[a]] = x[a];
 
 	r.sname = function (srch) {
 		return srch.split(/[?&]doc=/)[1].split('&')[0];
@@ -5934,7 +5092,7 @@ var showfile = (function () {
 		qsr('#prism_css');
 		var el = mknod('link', 'prism_css');
 		el.rel = 'stylesheet';
-		el.href = SR + '/.cpr/deps/prism' + (light ? '' : 'd') + '.css?_=' + TS;
+		el.href = SR + '/.cpr/w/deps/prism' + (light ? '' : 'd') + '.css?_=' + TS;
 		document.head.appendChild(el);
 	};
 
@@ -5978,7 +5136,7 @@ var showfile = (function () {
 		}
 		r.mktree();
 		if (em) {
-			if (r.taildoc)
+			if (r.taildoc || em[2] == '( size of textfile exceeds serverside limit )')
 				r.show(em[0], true);
 			else
 				render(em);
@@ -6101,7 +5259,7 @@ var showfile = (function () {
 		ebi('files').style.display = ebi('gfiles').style.display = ebi('lazy').style.display = ebi('pro').style.display = ebi('epi').style.display = 'none';
 		ebi('dldoc').setAttribute('href', url);
 		ebi('editdoc').setAttribute('href', addq(url, 'edit'));
-		ebi('editdoc').style.display = (has(perms, 'write') && (is_md || has(perms, 'delete'))) ? '' : 'none';
+		ebi('editdoc').style.display = (has(perms, 'write') && (re_rw_edit.test(name) || has(perms, 'delete'))) ? '' : 'none';
 
 		var wr = ebi('bdoc'),
 			nrend = r.nrend,
@@ -6147,7 +5305,7 @@ var showfile = (function () {
 				if (!defer)
 					fun(el.firstChild);
 				else
-					import_js(SR + '/.cpr/deps/prism.js', function () { fun(); });
+					import_js(SR + '/.cpr/w/deps/prism.js', function () { fun(); });
 			}
 			if (!txt && r.wrap)
 				el.className = 'wrap';
@@ -6232,8 +5390,36 @@ var showfile = (function () {
 		return out.join('');
 	};
 
+	r.ppj = function (e) {
+		ebi(e);
+		try {
+			r.ppj2();
+		}
+		catch (ex) {
+			toast.err(10, '' + ex);
+		}
+	};
+	r.ppj2 = function () {
+		var btn = ebi('dldoc'),
+			el = ebi('doc'),
+			t = el.textContent.trim(),
+			jo = JSON.parse(t),
+			jt = JSON.stringify(jo, null, t.indexOf('\n') + 1 ? 0 : 2);
+		el.textContent = jt;
+		el.innerHTML = '<code>' + el.innerHTML + '</code>';
+		try {
+			el = QS('#doc>code');
+			el.className = 'language-json';
+			Prism.highlightElement(el);
+		}
+		catch (ex) { }
+		btn.setAttribute('download', ebi('docname').innerHTML);
+		btn.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(jt));
+	};
+
 	r.mktree = function () {
-		var crumbs = linksplit(get_evpath()).join('<span>/</span>'),
+		var top = get_evpath().slice(SR.length),
+			crumbs = linksplit(top).join('<span>/</span>'),
 			html = ['<li class="bn">' + L.tv_lst + '<br />' + crumbs + '</li>'];
 		for (var a = 0; a < r.files.length; a++) {
 			var file = r.files[a];
@@ -6297,6 +5483,7 @@ var showfile = (function () {
 		'<a href="#" class="btn" id="prevdoc" tt="' + L.tvt_prev + '</a>\n' +
 		'<a href="#" class="btn" id="nextdoc" tt="' + L.tvt_next + '</a>\n' +
 		'<a href="#" class="btn" id="seldoc" tt="' + L.tvt_sel + '</a>\n' +
+		'<a href="#" class="btn" id="ppjdoc" tt="' + L.tvt_j + '</a>\n' +
 		'<a href="#" class="btn" id="editdoc" tt="' + L.tvt_edit + '</a>\n' +
 		'<a href="#" class="btn tgl" id="taildoc" tt="' + L.tvt_tail + '</a>\n' +
 		'<div id="tailbtns">\n' +
@@ -6316,6 +5503,7 @@ var showfile = (function () {
 	ebi('prevdoc').onclick = function () { tree_neigh(-1); };
 	ebi('nextdoc').onclick = function () { tree_neigh(1); };
 	ebi('seldoc').onclick = r.tglsel;
+	ebi('ppjdoc').onclick = r.ppj;
 	bcfg_bind(r, 'wrap', 'wrapdoc', true, r.tglwrap);
 	bcfg_bind(r, 'taildoc', 'taildoc', false, r.tgltail);
 	bcfg_bind(r, 'tail2end', 'tail2end', true);
@@ -6434,6 +5622,16 @@ var thegrid = (function () {
 			r.setvis();
 	};
 
+	r.autogrid = function (res) {
+		var ni = 0;
+		var nf = res.files.length;
+		for (var a = 0; a < nf; a++)
+			if (img_re.test('.' + res.files[a].ext))
+				ni++;
+		if (nf)
+			thegrid.en = 100 * ni / nf >= r.gathr;
+	};
+
 	function setln(v) {
 		if (v) {
 			r.ln += v;
@@ -6473,7 +5671,8 @@ var thegrid = (function () {
 
 	function gclick(e, dbl) {
 		var oth = ebi(this.getAttribute('ref')),
-			href = noq_href(this),
+			qhref = this.getAttribute('href'),
+			href = qhref.split('?')[0],
 			fid = oth.getAttribute('id'),
 			aplay = ebi('a' + fid),
 			atext = ebi('t' + fid),
@@ -6502,13 +5701,13 @@ var thegrid = (function () {
 			aplay.click();
 
 		else if (is_dir && !have_sel)
-			treectl.reqls(href, true);
+			treectl.reqls(qhref, true);
 
 		else if (is_txt && !has(['md', 'htm', 'html'], is_txt))
 			atext.click();
 
 		else if (!is_img && have_sel)
-			window.open(href, '_blank');
+			window.open(qhref, '_blank');
 
 		else {
 			if (!dbl)
@@ -6545,8 +5744,10 @@ var thegrid = (function () {
 		var ths = QSA('#ggrid>a');
 
 		for (var a = 0, aa = ths.length; a < aa; a++) {
-			var tr = ebi(ths[a].getAttribute('ref')).closest('tr'),
-				cl = tr.className || '';
+			var ref = ths[a].getAttribute('ref');
+			if (!ref)
+				continue;
+			var cl = ebi(ref).closest('tr').className || '';
 
 			if (noq_href(ths[a]).endsWith('/'))
 				cl += ' dir';
@@ -6599,7 +5800,7 @@ var thegrid = (function () {
 	};
 
 	function loadgrid() {
-		if (have_webp === null)
+		if (have_webp === null || have_jxl === null)
 			return setTimeout(loadgrid, 50);
 
 		r.setvis();
@@ -6652,7 +5853,11 @@ var thegrid = (function () {
 				ihref = ext_th[ext] || ext_th[ext0];
 			}
 			else if (r.thumbs) {
-				ihref = addq(ihref, 'th=' + (have_webp ? 'w' : 'j'));
+				ihref = addq(ihref, 'th=' + (
+					have_jxl  ? 'x' :
+					have_webp ? 'w' :
+					'j'
+				));
 				if (!r.crop)
 					ihref += 'f';
 				if (r.x3)
@@ -6718,23 +5923,20 @@ var thegrid = (function () {
 			afterShow: function () {
 				r.bbox_opts.refocus = true;
 			},
-			captions: function (g) {
-				var idx = -1,
-					h = '' + g;
-
-				for (var a = 0; a < r.bbox.length; a++)
-					if (r.bbox[a].imageElement == g)
-						idx = a;
+			captions: function (g, idx) {
+				var h = '' + g;
 
 				return '<a download href="' + h +
-					'">' + (idx + 1) + ' / ' + r.bbox.length + ' -- ' +
+					'">' + (idx + 1) + ' / ' + this.length + ' -- ' +
 					esc(uricom_dec(h.split('/').pop())) + '</a>';
 			},
-			onChange: function (i) {
-				sethash('g' + r.bbox[i].imageElement.getAttribute('ref') + getsort());
+			onChange: function (i, maxIdx) {
+				if (this[i].imageElement) {
+					sethash('g' + this[i].imageElement.getAttribute('ref') + getsort());
+				}
 			}
 		});
-		r.bbox = br[0][0];
+		r.bbox = true;
 		r.bbox_opts = br[1];
 	};
 
@@ -6819,6 +6021,17 @@ var thegrid = (function () {
 		pbar.onresize();
 		vbar.onresize();
 	});
+	bcfg_bind(r, 'gaen', 'gauto', !!dgauto, function(v) {
+		if (r.en && sread("griden") != 1) {
+			r.en = false;
+			r.setvis(true);
+		}
+	});
+	ebi('ga_thresh').value = r.gathr = icfg_get('ga_thresh', dgauto || 70);
+	ebi('ga_thresh').oninput = function (e) {
+		var n = parseInt(this.value);
+		swrite('ga_thresh', r.gathr = (isNum(n) ? n : 0) || 70);
+	};
 	ebi('wtgrid').onclick = ebi('griden').onclick;
 
 	return r;
@@ -6857,7 +6070,10 @@ function tree_scrolltoo(q) {
 }
 
 
-function tree_neigh(n) {
+function tree_neigh(n, ratelimit) {
+	if (ratelimit && QS('.dumb_loader_thing') && Date.now() - treectl.busied < 5)
+		return;
+
 	var links = QSA(showfile.active() || treectl.texts ? '#docul li>a' : '#treeul li>a+a');
 	if (!links.length) {
 		treectl.dir_cb = function () {
@@ -6921,7 +6137,7 @@ function hkhelp() {
 		html.push('<table>');
 		for (var a = 0; a < c.length; a++)
 			try {
-				if (c[a].length != 2)
+				if (!Array.isArray(c[a]))
 					html.push('<tr><th colspan="2">' + esc(c[a]) + '</th></tr>');
 				else {
 					var t1 = c[a][0].replace('⇧', '<b>⇧</b>');
@@ -6975,6 +6191,13 @@ function fselfunw(e, ae, d, rem) {
 	}
 	selfun();
 }
+var konmai = 0, konmak = (function() {
+	var u = "arrowup",
+		d = "arrowdown",
+		l = "arrowleft",
+		r = "arrowright";
+	return [u, u, d, d, l, r, l, r, "b", "a", "enter"];
+})();
 var ahotkeys = function (e) {
 	if (e.altKey || e.isComposing)
 		return;
@@ -6982,9 +6205,38 @@ var ahotkeys = function (e) {
 	if (QS('#bbox-overlay.visible') || modal.busy)
 		return;
 
-	var k = (e.code || e.key) + '', pos = -1, n,
+	var k = (e.key || e.code) + '', pos = -1, n,
+		sh = e.shiftKey,
 		ae = document.activeElement,
 		aet = ae && ae != document.body ? ae.nodeName.toLowerCase() : '';
+
+	if (k.startsWith('Key'))
+		k = k.slice(3);
+	else if (k.startsWith('Digit'))
+		k = k.slice(5);
+
+	var kl = k.toLowerCase();
+
+	if (dbg_kbd)
+		console.log('KBD', k, kl, e.key, e.code, e.keyCode, e.which);
+
+	if (konmai < 0)
+		noop();
+	else if (konmak[konmai] != kl)
+		konmai = konmai && kl == konmak[0] ? (konmai<3?konmai:1):0;
+	else if (++konmai >= konmak.length) {
+		konmai = -1;
+		document.documentElement.scrollTop = 0;
+		settheme.go(6);
+		start_actx();
+		sfx_nice();
+		toast.inf(9, 'omega clearance granted', null, 'top');
+		setTimeout(function() {
+			apply_perms(treectl.lsc);
+			fileman.render();
+		}, 573);
+		return ev(e);
+	}
 
 	if (k == 'Escape' || k == 'Esc') {
 		ae && ae.blur();
@@ -6992,6 +6244,9 @@ var ahotkeys = function (e) {
 
 		if (ebi('hkhelp'))
 			return qsr('#hkhelp');
+
+		if (ebi('rcm').style.display)
+			return rcm.hide();
 
 		if (toast.visible)
 			return toast.hide();
@@ -7021,6 +6276,9 @@ var ahotkeys = function (e) {
 			return ebi('griden').click();
 	}
 
+	if (aet == 'input')
+		return;
+
 	var in_ftab = (aet == 'tr' || aet == 'td') && ae.closest('#files');
 	if (in_ftab) {
 		var d = '', rem = 0;
@@ -7033,7 +6291,7 @@ var ahotkeys = function (e) {
 			fselfunw(e, ae, d, rem);
 			return ev(e);
 		}
-		if (k == 'Space' || k == 'Spacebar') {
+		if (k == 'Space' || k == 'Spacebar' || k == ' ') {
 			clmod(ae, 'sel', 't');
 			msel.origin_tr(ae);
 			msel.selui();
@@ -7041,7 +6299,7 @@ var ahotkeys = function (e) {
 		}
 	}
 	if (in_ftab || !aet || (ae && ae.closest('#ggrid'))) {
-		if ((k == 'KeyA' || k == 'a') && ctrl(e)) {
+		if ((kl == 'a') && ctrl(e)) {
 			var ntot = treectl.lsc.files.length + treectl.lsc.dirs.length,
 				sel = msel.getsel(),
 				all = msel.getall();
@@ -7057,7 +6315,7 @@ var ahotkeys = function (e) {
 	}
 
 	if (ae && ae.closest('pre')) {
-		if ((k == 'KeyA' || k == 'a') && ctrl(e)) {
+		if ((kl == 'a') && ctrl(e)) {
 			var sel = document.getSelection(),
 				ran = document.createRange();
 
@@ -7074,107 +6332,107 @@ var ahotkeys = function (e) {
 	if (aet && aet != 'a' && aet != 'tr' && aet != 'td' && aet != 'div' && aet != 'pre')
 		return;
 
-	if (e.key == '?')
+	if (k == '?')
 		return hkhelp();
 
-	if (!e.shiftKey && ctrl(e)) {
+	if (!sh && ctrl(e)) {
 		var sel = window.getSelection && window.getSelection() || {};
 		sel = sel && !sel.isCollapsed && sel.direction != 'none';
 
-		if (k == 'KeyX' || k == 'x')
+		if (kl == 'x')
 			return fileman.cut(e);
 
-		if ((k == 'KeyC' || k == 'c') && !sel)
+		if (kl == 'c' && !sel)
 			return fileman.cpy(e);
 
-		if (k == 'KeyV' || k == 'v')
+		if (kl == 'v')
 			return fileman.d_paste(e);
 
-		if (k == 'KeyK' || k == 'k')
+		if (kl == 'k')
 			return fileman.delete(e);
 
 		return;
 	}
 
-	if (e.shiftKey && k != 'KeyA' && k != 'KeyD' && k != 'A' && k != 'D')
+	if (showfile.active()) {
+		if (!sh && kl == 's')
+			return showfile.tglsel() || true;
+		if (!sh && kl == 'e' && ebi('editdoc').style.display != 'none')
+			return ebi('editdoc').click() || true;
+		if (sh && kl == 'j')
+			return showfile.ppj(e) || true;
+	}
+
+	if (sh && kl != 'a' && kl != 'd')
 		return;
 
-	if (k.indexOf('Digit') === 0)
-		pos = parseInt(k.slice(-1)) * 0.1;
+	if (/^[0-9]$/.test(k))
+		pos = parseInt(k) * 0.1;
 
 	if (pos !== -1)
 		return seek_au_mul(pos) || true;
 
-	if (k == 'KeyJ' || k == 'j')
+	if (kl == 'j')
 		return prev_song() || true;
 
-	if (k == 'KeyL' || k == 'l')
+	if (kl == 'l')
 		return next_song() || true;
 
-	if (k == 'KeyP' || k == 'p')
+	if (kl == 'p')
 		return playpause() || true;
 
-	n = (k == 'KeyU' || k == 'u') ? -10 :
-		(k == 'KeyO' || k == 'o') ? 10 : 0;
+	n = kl == 'u' ? -10 : kl == 'o' ? 10 : 0;
 	if (n !== 0)
 		return seek_au_rel(n) || true;
 
-	if (k == 'KeyY')
+	if (kl == 'y')
 		return msel.getsel().length ? ebi('seldl').click() :
 			showfile.active() ? ebi('dldoc').click() :
 				dl_song();
 
-	n = (k == 'KeyI' || k == 'i') ? -1 :
-		(k == 'KeyK' || k == 'k') ? 1 : 0;
+	n = kl == 'i' ? -1 : kl == 'k' ? 1 : 0;
 	if (n !== 0)
-		return tree_neigh(n);
+		return tree_neigh(n, 1);
 
-	if (k == 'KeyM' || k == 'm')
+	if (kl == 'm')
 		return tree_up();
 
-	if (k == 'KeyB' || k == 'b')
+	if (kl == 'b')
 		return treectl.hidden ? treectl.entree() : treectl.detree();
 
-	if (k == 'KeyG' || k == 'g')
+	if (kl == 'g')
 		return ebi('griden').click();
 
-	if (k == 'KeyT' || k == 't')
+	if (kl == 't')
 		return ebi('thumbs').click();
 
-	if (k == 'KeyV' || k == 'v')
+	if (kl == 'v')
 		return ebi('filetree').click();
 
 	if (k == 'F2')
 		return fileman.rename();
 
-	if (!treectl.hidden && (!e.shiftKey || !thegrid.en)) {
-		if (k == 'KeyA' || k == 'a')
+	if (!treectl.hidden && (!sh || !thegrid.en)) {
+		if (kl == 'a')
 			return QS('#twig').click();
 
-		if (k == 'KeyD' || k == 'd')
+		if (kl == 'd')
 			return QS('#twobytwo').click();
 	}
 
-	if (showfile.active()) {
-		if (k == 'KeyS' || k == 's')
-			showfile.tglsel();
-		if ((k == 'KeyE' || k == 'e') && ebi('editdoc').style.display != 'none')
-			ebi('editdoc').click();
-	}
-
 	if (mp && mp.au && !mp.au.paused) {
-		if (k == 'KeyS')
+		if (kl == 's')
 			return sel_song();
 	}
 
 	if (thegrid.en) {
-		if (k == 'KeyS' || k == 's')
+		if (kl == 's')
 			return ebi('gridsel').click();
 
-		if (k == 'KeyA' || k == 'a')
+		if (kl == 'a')
 			return QSA('#ghead a[z]')[0].click();
 
-		if (k == 'KeyD' || k == 'd')
+		if (kl == 'd')
 			return QSA('#ghead a[z]')[1].click();
 	}
 };
@@ -7449,7 +6707,8 @@ var search_ui = (function () {
 		for (var a = 0; a < res.hits.length; a++) {
 			var r = res.hits[a],
 				ts = parseInt(r.ts),
-				sz = esc(r.sz + ''),
+				sz = parseInt(r.sz),
+				hsz = filesizefun(sz),
 				rp = esc(uricom_dec(r.rp + '')),
 				ext = rp.lastIndexOf('.') > 0 ? rp.split('.').pop().split('?')[0] : '%',
 				id = 'f-' + ('00000000' + crc32(rp)).slice(-8);
@@ -7461,8 +6720,9 @@ var search_ui = (function () {
 			if (ext.length > 8)
 				ext = '%';
 
-			var links = linksplit(r.rp + '', id).join('<span>/</span>'),
-				nodes = ['<tr><td>-</td><td><div>' + links + '</div>', sz];
+			var links = linksplit(r.rp + '', null, id).join('<span>/</span>'),
+				nodes = ['<tr><td>-</td><td><div>' + links +
+					'</div></td><td sortv="' + sz + '">' + hsz];
 
 			for (var b = 0; b < tagord.length; b++) {
 				var k = esc(tagord[b]),
@@ -7477,7 +6737,7 @@ var search_ui = (function () {
 				nodes.push(esc('' + v));
 			}
 
-			nodes = nodes.concat([ext, unix2iso(ts)]);
+			nodes = nodes.concat([ext, unix2ui(ts)]);
 			html.push(nodes.join('</td><td>'));
 			html.push('</td></tr>');
 		}
@@ -7533,7 +6793,7 @@ function ev_load_m3u(e) {
 		function () { load_m3u(url); },
 		function () {
 			if (has(perms, 'write') && has(perms, 'delete'))
-				window.location = url + '?edit';
+				location = url + '?edit';
 			else
 				showfile.show(url);
 		}
@@ -7675,6 +6935,9 @@ var treectl = (function () {
 		mentered = null,
 		treesz = clamp(icfg_get('treesz', 16), 10, 50);
 
+	if (/[?&]dlni\b/.exec(sloc0))
+		swrite('dlni', /[?&]dlni=0\b/.exec(sloc0) ? 0 : 1);
+
 	var resort = function () {
 		ENATSORT = NATSORT && clgot(ebi('nsort'), 'on');
 		treectl.gentab(get_evpath(), treectl.lsc);
@@ -7683,11 +6946,15 @@ var treectl = (function () {
 	bcfg_bind(r, 'idxh', 'idxh', idxh, setidxh);
 	bcfg_bind(r, 'dyn', 'dyntree', true, onresize);
 	bcfg_bind(r, 'csel', 'csel', dgsel);
+	bcfg_bind(r, 'dsel', 'dsel', !MOBILE);
+	bcfg_bind(r, 'dlni', 'dlni', dlni, resort);
 	bcfg_bind(r, 'dots', 'dotfiles', see_dots, function (v) {
 		r.goto();
-		var xhr = new XHR();
-		xhr.open('GET', SR + '/?setck=dots=' + (v ? 'y' : ''), true);
-		xhr.send();
+		setck('dots=' + (v ? 'y' : ''));
+	});
+	bcfg_bind(r, 'utctid', 'utctid', dutc, function (v) {
+		window.unix2ui = v ? unix2iso : unix2iso_localtime;
+		resort();
 	});
 	bcfg_bind(r, 'nsort', 'nsort', dnsort, resort);
 	bcfg_bind(r, 'dir1st', 'dir1st', true, resort);
@@ -7720,9 +6987,7 @@ var treectl = (function () {
 		if (!v == !/\bidxh=y\b/.exec('' + document.cookie))
 			return;
 
-		var xhr = new XHR();
-		xhr.open('GET', SR + '/?setck=idxh=' + (v ? 'y' : 'n'), true);
-		xhr.send();
+		setck('idxh=' + (v ? 'y' : 'n'));
 	}
 	setidxh(r.idxh);
 
@@ -7739,7 +7004,7 @@ var treectl = (function () {
 	r.show = function () {
 		r.hidden = false;
 		if (!entreed) {
-			ebi('path').style.display = 'inline-block';
+			ebi('path').style.display = nonav ? 'none' : 'inline-block';
 			return;
 		}
 
@@ -7751,14 +7016,16 @@ var treectl = (function () {
 		aligngriditems();
 	};
 
-	r.detree = function (e) {
+	r.detree = function (e, nw) {
 		ev(e);
 		entreed = false;
-		swrite('entreed', 'na');
+		if (!nw)
+			swrite('entreed', 'na');
 
 		r.hide();
-		ebi('path').style.display = '';
-	}
+		if (!nonav)
+			ebi('path').style.display = '';
+	};
 
 	r.hide = function () {
 		r.hidden = true;
@@ -7768,7 +7035,7 @@ var treectl = (function () {
 		window.removeEventListener('resize', onresize);
 		window.removeEventListener('scroll', onscroll);
 		aligngriditems();
-	}
+	};
 
 	function unmenter() {
 		if (mentered) {
@@ -7928,7 +7195,7 @@ var treectl = (function () {
 		xhr.top = top;
 		xhr.dst = dst;
 		xhr.rst = rst;
-		xhr.ts = Date.now();
+		xhr.ts = r.busied = Date.now();
 		xhr.open('GET', addq(dst, 'tree=' + top + (r.dots ? '&dots' : '') + k), true);
 		xhr.onload = xhr.onerror = r.recvtree;
 		xhr.send();
@@ -7952,6 +7219,8 @@ var treectl = (function () {
 	};
 
 	r.prunetree = function (res) {
+		if (r.dots)
+			return;
 		var ptn = new RegExp(res.unlist);
 		var els = QSA('#treeul li>a+a');
 		for (var a = els.length - 1; a >= 0; a--)
@@ -7967,13 +7236,22 @@ var treectl = (function () {
 		}
 		ebi('treeul').setAttribute('ts', ts);
 
+		if (SR && !top0) {
+			var x = SR.slice(1).split('/');
+			while (x[0]) {
+				res = res['k' + x.shift()];
+				if (!res)
+					throw 'invalid --rp-loc (or bug?)';
+			}
+		}
+
 		var top = (top0 == '.' ? dst : top0).split('?')[0],
 			name = uricom_dec(top.split('/').slice(-2)[0]),
 			rtop = top.replace(/^\/+/, ""),
-			html = parsetree(res, rtop);
+			html = parsetree(res, rtop.slice(SR.length));
 
 		if (!top0) {
-			html = '<li><a href="#">-</a><a href="/">[root]</a>\n<ul>' + html;
+			html = '<li><a href="#">-</a><a href="' + SR + '/">[root]</a>\n<ul>' + html;
 			if (rst || !ebi('treeul').getElementsByTagName('li').length)
 				ebi('treeul').innerHTML = html + '</ul></li>';
 		}
@@ -8116,10 +7394,6 @@ var treectl = (function () {
 			return;
 		}
 		var href = this.getAttribute('href');
-		if (R && !href.startsWith(SR)) {
-			location = href;
-			return;
-		}
 		r.reqls(href, true);
 		r.dir_cb = tree_scrollto;
 		thegrid.setvis(true);
@@ -8128,7 +7402,7 @@ var treectl = (function () {
 
 	r.reqls = function (url, hpush, back, hydrate) {
 		if (IE && !history.pushState)
-			return window.location = url;
+			return location = url;
 
 		var xhr = new XHR(),
 			m = /[?&](k=[^&#]+)/.exec(url),
@@ -8142,8 +7416,9 @@ var treectl = (function () {
 		xhr.back = back
 		xhr.hpush = hpush;
 		xhr.hydrate = hydrate;
-		xhr.ts = Date.now();
+		xhr.ts = r.busied = Date.now();
 		xhr.open('GET', xhr.top + '?ls' + uq, true);
+		xhr.setRequestHeader('Fnugg', '' + xhr.ts);
 		xhr.onload = xhr.onerror = recvls;
 		xhr.send();
 
@@ -8191,6 +7466,7 @@ var treectl = (function () {
 		try {
 			var res = JSON.parse(this.responseText);
 			Object.assign(res, res.cfg);
+			res.cfg.k;
 		}
 		catch (ex) {
 			if (r.ls_cb) {
@@ -8209,15 +7485,28 @@ var treectl = (function () {
 		if (r.chk_index_html(this.top, res))
 			return;
 
+		if (this.ts != res.fnugg && res.fnugg != 'nei' && sread('no_fnugg') !== '1')
+			toast.warn(60, "WARNING: A proxy/CDN between your webbrowser and the server is misbehaving, and caching responses it shouldn't. As a result, you are now seeing stale directory listings. There will be many issues.\n\nIf you need to ignore this and stop these messages, you can set the global-option 'no-fnugg' on the server, or click <code>π</code> and run this: <code>STG.no_fnugg=1</code>");
+
 		for (var a = 0; a < res.files.length; a++)
 			if (res.files[a].tags === undefined)
 				res.files[a].tags = {};
 
+		sb_lg = res.sb_lg;
+		sb_md = res.sb_md;
 		dnsort = res.dnsort;
 		read_dsort(res.dsort);
 		dcrop = res.dcrop;
 		dth3x = res.dth3x;
 		dk = res.dk;
+
+		dlni = res.dlni;
+		if (!sread('dlni'))
+			clmod(ebi('dlni'), 'on', treectl.dlni = dlni);
+
+		dgrid = res.dgrid;
+		if (!sread('griden'))
+			clmod(ebi('griden'), 'on', thegrid.en = dgrid);
 
 		srvinf = res.srvinf;
 		if (rtt !== null)
@@ -8226,6 +7515,11 @@ var treectl = (function () {
 		var o = ebi('srv_info2');
 		if (o)
 			o.innerHTML = ebi('srv_info').innerHTML = '<span>' + srvinf + '</span>';
+
+		if (res.ufavico && (!favico.en || !ebi('icot').value)) {
+			while (qsr('head>link[rel~="icon"]')) { }
+			document.head.insertAdjacentHTML('beforeend', res.ufavico);
+		}
 
 		if (this.hpush && !showfile.active())
 			hist_push(this.top + (dk ? '?k=' + dk : ''));
@@ -8290,7 +7584,7 @@ var treectl = (function () {
 			fun();
 		}
 
-		if (window.have_shr && QS('#op_unpost.act') && (cdir.startsWith(SR + have_shr) || get_evpath().startsWith(SR + have_shr)))
+		if (can_shr && in_shr && QS('#op_unpost.act'))
 			goto('unpost');
 	}
 
@@ -8315,6 +7609,8 @@ var treectl = (function () {
 			plain = [],
 			seen = {};
 
+		in_shr = have_shr && top.startsWith(SR + have_shr);
+
 		if (ae && /^tr$/i.exec(ae.nodeName))
 			if (ae = ae.querySelector('a[id]'))
 				cid = ae.getAttribute('id');
@@ -8324,7 +7620,7 @@ var treectl = (function () {
 			memo_dk(top, m[1]);
 
 		r.lsc = res;
-		if (res.unlist) {
+		if (res.unlist && !r.dots) {
 			var ptn = new RegExp(res.unlist);
 			for (var a = nodes.length - 1; a >= 0; a--)
 				if (ptn.exec(uricom_dec(nodes[a].href.split('?')[0])))
@@ -8374,7 +7670,8 @@ var treectl = (function () {
 
 			var cl = /\.PARTIAL$/.exec(fname) ? ' class="fade"' : '',
 				ln = ['<tr' + cl + '><td>' + tn.lead + '</td><td><a href="' +
-					top + tn.href + '" id="' + id + '">' + hname + '</a>', tn.sz];
+					top + tn.href + '" id="' + id + '">' + hname +
+					'</a></td><td sortv="' + tn.sz + '">' + filesizefun(tn.sz)];
 
 			for (var b = 0; b < res.taglist.length; b++) {
 				var k = esc(res.taglist[b]),
@@ -8384,19 +7681,24 @@ var treectl = (function () {
 				if (k == ".dur")
 					sv = v ? s2ms(v) : "";
 				else if (k == ".up_at")
-					sv = v ? unix2iso(v) : "";
+					sv = v ? unix2ui(v) : "";
 				else {
 					ln.push(esc('' + v));
 					continue;
 				}
 				ln[ln.length - 1] += '</td><td sortv="' + v + '">' + sv;
 			}
-			ln = ln.concat([tn.ext, unix2iso(tn.ts)]).join('</td><td>');
+			ln = ln.concat([tn.ext, unix2ui(tn.ts)]).join('</td><td>');
 			html.push(ln + '</td></tr>');
 		}
 		html.push('</tbody>');
 		html = html.join('\n');
 		set_files_html(html);
+		if (r.dlni) {
+			var o = QSA('#files a[id]');
+			for (var a = 0, aa = o.length; a < aa; a++)
+				o[a].setAttribute('download', '');
+		}
 		if (r.trunc) {
 			r.setlazy(plain);
 			if (!r.ask) {
@@ -8412,7 +7714,7 @@ var treectl = (function () {
 			reload_tree();
 			reload_browser();
 			tree_scrollto();
-			if (res.acct) {
+			if (res.cfg) {
 				acct = res.acct;
 				have_up2k_idx = res.idx;
 				have_tags_idx = res.itag;
@@ -8445,20 +7747,23 @@ var treectl = (function () {
 			}
 		}
 
+		if (thegrid.gaen && sread('griden') != 1)
+			thegrid.autogrid(res);
+
 		if (url) setTimeout(asdf, 1); else asdf();
 	}
 
 	r.hydrate = function () {
 		qsr('#bbsw');
+		srvinf = ebi('srv_info').innerHTML.slice(6, -7);
 		if (ls0 === null) {
-			var xhr = new XHR();
-			xhr.open('GET', SR + '/?setck=js=y', true);
-			xhr.send();
-
 			r.ls_cb = showfile.addlinks;
-			return r.reqls(get_evpath(), false, undefined, true);
+			return setck('js=y', function () {
+				r.reqls(get_evpath(), false, undefined, true);
+			});
 		}
 		ls0.unlist = unlist0;
+		ls0.u2ts = u2ts;
 
 		var top = get_evpath();
 		if (r.chk_index_html(top, ls0))
@@ -8518,7 +7823,7 @@ var treectl = (function () {
 		catch (ex) { }
 	};
 
-	r.showmore = function (n) {
+	r.showmore = function (n, cb) {
 		window.removeEventListener('scroll', r.tscroll);
 		console.log('nvis {0} -> {1}'.format(r.nvis, n));
 		r.nvis = n;
@@ -8528,6 +7833,8 @@ var treectl = (function () {
 		setTimeout(function () {
 			r.gentab(get_evpath(), r.lsc);
 			ebi('wrap').style.opacity = CLOSEST ? 'unset' : 1;
+			if (cb)
+				cb();
 		}, 1);
 	};
 
@@ -8583,7 +7890,7 @@ var treectl = (function () {
 				url = '/' + (top ? top + uek : uek) + '/',
 				sym = res[kk] ? '-' : '+',
 				link = '<a href="#">' + sym + '</a><a href="' +
-					url + kdk + '">' + hek + '</a>';
+					SR + url + kdk + '">' + hek + '</a>';
 
 			if (res[kk]) {
 				var subtree = parsetree(res[kk], url.slice(1));
@@ -8615,6 +7922,11 @@ var treectl = (function () {
 
 	var cs = sread('entreed'),
 		vw = window.innerWidth / parseFloat(getComputedStyle(document.body)['font-size']);
+
+	if (notree) {
+		cs = 'na';
+		r.detree(null, 1);
+	}
 
 	if (cs == 'tree' || (cs != 'na' && vw >= 60))
 		r.entree(null, true);
@@ -8694,6 +8006,19 @@ var wfp_debounce = (function () {
 function apply_perms(res) {
 	perms = res.perms || [];
 
+	var axs = [],
+		aclass = '>',
+		chk = ['read', 'write', 'move', 'delete', 'get', 'admin'];
+
+	if (konmai < 0) {
+		acct = 'Ted Faro';
+		srvinf = 'FAS Nexus</span> // <span>57.3 EiB free of 127 EiB';
+		res.shr_who = 'auth';
+		perms = res.perms = chk;
+		have_up2k_idx = have_tags_idx = 1;
+		have_mv = have_del = true;
+	}
+
 	var a = QS('#ops a[data-dest="up2k"]');
 	if (have_up2k_idx) {
 		a.removeAttribute('data-perm');
@@ -8708,10 +8033,6 @@ function apply_perms(res) {
 	a.style.display = '';
 	tt.att(QS('#ops'));
 
-	var axs = [],
-		aclass = '>',
-		chk = ['read', 'write', 'move', 'delete', 'get', 'admin'];
-
 	for (var a = 0; a < chk.length; a++)
 		if (has(perms, chk[a]))
 			axs.push(chk[a].slice(0, 1).toUpperCase() + chk[a].slice(1));
@@ -8722,10 +8043,14 @@ function apply_perms(res) {
 		axs += '-Only';
 	}
 
+	var dst = "?h";
+	if (idp_login && acct == "*")
+		dst = idp_login.replace(/\{dst\}/g, get_evpath());
+
 	ebi('acc_info').innerHTML = '<span id="srv_info2"><span>' + srvinf +
 		'</span></span><span' + aclass + axs + L.access + '</span>' + (acct != '*' ?
-			'<form id="flogout" method="post" enctype="multipart/form-data"><input type="hidden" name="act" value="logout" /><input id="blogout" type="submit" value="' + (window.is_idp ? '' : L.logout) + acct + '"></form>' :
-			'<a href="?h">Login</a>');
+			'<form id="flogout" method="post" enctype="multipart/form-data"><input type="hidden" name="act" value="logout" /><input id="blogout" type="submit" value="' + L.logout + acct + '"></form>' :
+			'<a href="' + dst + '">' + L.login + '</a>');
 
 	var o = QSA('#ops>a[data-perm]');
 	for (var a = 0; a < o.length; a++) {
@@ -8745,6 +8070,9 @@ function apply_perms(res) {
 			o[a].getAttribute('data-dep') != 'idx' || have_up2k_idx
 		) ? '' : 'none';
 
+	if (in_shr)
+		ebi('opa_srch').style.display = 'none';
+
 	var act = QS('#ops>a.act');
 	if (act && act.style.display === 'none')
 		goto();
@@ -8755,6 +8083,11 @@ function apply_perms(res) {
 		have_read = has(perms, "read"),
 		de = document.documentElement,
 		tds = QSA('#u2conf td');
+
+	shr_who = res.shr_who || shr_who;
+	can_shr = acct != '*' && (have_read || have_write) && (
+		(shr_who == 'a' && has(perms, 'admin')) ||
+		(shr_who == 'auth'));
 
 	clmod(de, "read", have_read);
 	clmod(de, "write", have_write);
@@ -8772,6 +8105,11 @@ function apply_perms(res) {
 	u2ts = res.u2ts;
 	if (up2k)
 		up2k.set_fsearch();
+
+	if (res.cfg)
+		rw_edit = res.rw_edit;
+	enre_rw_edit();
+	ebi('new_mdi').innerHTML = has(perms, "delete") ? L.nmd_i1 : L.nmd_i2.format(rw_edit.replace(/,/g, '/'));
 
 	widget.setvis();
 	thegrid.setvis();
@@ -9048,25 +8386,21 @@ var mukey = (function () {
 		defnot = 'rekobo_alnum';
 
 	var map = {},
-		html = [];
+		html = [],
+		cb = ebi('key_notation');
 
 	for (var k in maps) {
 		if (!maps.hasOwnProperty(k))
 			continue;
 
-		html.push(
-			'<span><input type="radio" name="keytype" value="' + k + '" id="key_' + k + '">' +
-			'<label for="key_' + k + '">' + k + '</label></span>');
-
+		html.push('<option value="{0}">{0}</option>'.format(k));
 		for (var a = 0; a < 24; a++)
 			maps[k][a] = maps[k][a].trim();
 	}
-	ebi('key_notation').innerHTML = html.join('\n');
+	cb.innerHTML = html.join('');
 
-	function set_key_notation(e) {
-		ev(e);
-		var notation = this.getAttribute('value');
-		load_notation(notation);
+	function set_key_notation() {
+		load_notation(cb.value);
 		try_render();
 	}
 
@@ -9123,13 +8457,9 @@ var mukey = (function () {
 	if (!maps[notation])
 		notation = defnot;
 
-	ebi('key_' + notation).checked = true;
+	cb.value = notation;
+	cb.onchange = set_key_notation;
 	load_notation(notation);
-
-	var o = QSA('#key_notation input');
-	for (var a = 0; a < o.length; a++) {
-		o[a].onchange = set_key_notation;
-	}
 
 	return {
 		"render": try_render
@@ -9169,17 +8499,17 @@ var settheme = (function () {
 		showfile.setstyle();
 		bchrome();
 
-		var html = [], itheme = ax.indexOf(theme[0]) * 2 + (light ? 1 : 0),
-			names = ['classic dark', 'classic light', 'pm-monokai', 'flat light', 'vice', 'hotdog stand', 'hacker', 'hi-con'];
+		var html = [],
+			cb = ebi('themes'),
+			itheme = ax.indexOf(theme[0]) * 2 + (light ? 1 : 0),
+			names = ['classic dark', 'classic light', 'pm-monokai', 'flat light', 'vice', 'hotdog stand', 'hacker', 'hi-con', 'phi95 dark', 'phi95'];
 
 		for (var a = 0; a < themes; a++)
-			html.push('<a href="#" class="btn tgl' + (a == itheme ? ' on' : '') +
-				'" tt="' + (names[a] || 'custom') + '">' + a + '</a>');
+			html.push('<option value="{0}">{0} ┃ {1}</option>'.format(a, names[a] || 'custom'));
 
 		ebi('themes').innerHTML = html.join('');
-		var btns = QSA('#themes a');
-		for (var a = 0; a < themes; a++)
-			btns[a].onclick = r.go;
+		cb.value = itheme;
+		cb.onchange = r.onsel;
 
 		if (chldr) {
 			var x = r.ldr[itheme] || [tre];
@@ -9188,12 +8518,13 @@ var settheme = (function () {
 		}
 
 		bcfg_set('light', light);
-		tt.att(ebi('themes'));
 	}
 
-	r.go = function (e) {
-		var i = e;
-		try { ev(e); i = e.target.textContent; } catch (ex) { }
+	r.onsel = function () {
+		r.go(parseInt(ebi('themes').value));
+	};
+
+	r.go = function (i) {
 		light = i % 2 == 1;
 		var c = ax[Math.floor(i / 2)],
 			l = light ? 'y' : 'z';
@@ -9201,36 +8532,62 @@ var settheme = (function () {
 		themen = c + l;
 		swrite('cpp_thm', theme);
 		freshen();
-	}
+	};
 
-	freshen();
+	var m = /[?&]theme=([0-9]+)/.exec(sloc0);
+	if (m)
+		r.go(parseInt(m[1]));
+	else
+		freshen();
+
 	return r;
+})();
+
+
+var setfszf = (function () {
+	function freshen() {
+		var cb = ebi('fszfmt'),
+			fmt = sread("fszfmt", humansize_fmts) || window.dfszf;
+		if (!has(humansize_fmts, fmt))
+			fmt = '1';
+		window.filesizefun = window['humansize_' + fmt];
+		cb.onchange = onch;
+		if (cb.value != fmt)
+			cb.value = fmt;
+	}
+	function onch(e) {
+		ev(e);
+		setfmt(ebi('fszfmt').value)
+	}
+	function setfmt(fmt) {
+		swrite("fszfmt", fmt);
+		freshen();
+		treectl.gentab(get_evpath(), treectl.lsc);
+	}
+	freshen();
+	return setfmt;
 })();
 
 
 (function () {
 	function freshen() {
-		lang = sread("cpp_lang", LANGS) || lang;
-		var k, html = [];
-		for (var a = 0; a < LANGS.length; a++) {
-			k = LANGS[a];
-			html.push('<a href="#" class="btn tgl' + (k == lang ? ' on' : '') +
-				'" tt="' + Ls[k].tt + '">' + k + '</a>');
+		var cb = ebi('langs'), html = [];
+		for (var a = 0; a < LANGN.length; a++) {
+			html.push('<option value="{0}">{0} ┃ {1}</option>'.format(LANGN[a][0], LANGN[a][1]));
 		}
-		ebi('langs').innerHTML = html.join('');
-		var btns = QSA('#langs a');
-		for (var a = 0, aa = btns.length; a < aa; a++)
-			btns[a].onclick = setlang;
+		cb.innerHTML = html.join('');
+		cb.onchange = setlang;
+		cb.value = lang;
 	}
 
 	function setlang(e) {
 		ev(e);
-		var t = L.lang_set;
-		L = Ls[this.textContent];
-		swrite("cpp_lang", this.textContent);
+		lang = ebi('langs').value;
+		setck('cplng=' + lang);
 		freshen();
+		var t = L.tt == 'English' ? '' : Ls.eng.lang_set;
 		modal.confirm(L.lang_set + "\n\n" + t, location.reload.bind(location), null);
-	};
+	}
 
 	freshen();
 })();
@@ -9356,9 +8713,13 @@ var msel = (function () {
 
 		for (var a = 0, aa = links.length; a < aa; a++) {
 			var qhref = links[a].getAttribute('href'),
-				href = qhref.split('?')[0].replace(/\/$/, ""),
+				href = qhref.split('?')[0],
 				item = {};
 
+			if (href.endsWith('/')) {
+				href = href.slice(0, -1);
+				item.isd = true;
+			}
 			item.id = links[a].getAttribute('id');
 			item.sel = clgot(links[a].closest('tr'), 'sel');
 			item.vp = href.indexOf('/') !== -1 ? href : vbase + href;
@@ -9521,7 +8882,10 @@ var msel = (function () {
 		ev(e);
 		var sel = r.getsel();
 		for (var a = 0; a < sel.length; a++)
-			dl_file(sel[a].vp + sel[a].q);
+			if (sel[a].isd)
+				toast.warn(7, L.f_dl_nd + esc(sel[a].vp));
+			else
+				dl_file(sel[a].vp + sel[a].q);
 	};
 	r.render = function () {
 		var tds = QSA('#files tbody td+td+td'),
@@ -9551,13 +8915,17 @@ var msel = (function () {
 		tb = QS('#op_new_md input[name="name"]');
 
 	form.onsubmit = function (e) {
+		if (!has(perms, "delete") && !re_rw_edit.test(tb.value)) {
+			ev(e);
+			toast.err(10, L.nmd_i2.format(rw_edit.replace(/,/g, '/')));
+			return false;
+		}
 		if (tb.value) {
 			if (toast.tag == L.mk_noname)
 				toast.hide();
 
 			return true;
 		}
-
 		ev(e);
 		toast.err(10, L.mk_noname, L.mk_noname);
 		return false;
@@ -9644,9 +9012,14 @@ var msel = (function () {
 		sf.textContent = 'sending...';
 
 		var xhr = new XHR(),
+			sel = msel.getsel(),
+			msg = uricom_enc(tb.value),
 			ct = 'application/x-www-form-urlencoded;charset=UTF-8';
 
-		xhr.msg = tb.value;
+		for (var a = 0; a < sel.length; a++)
+			msg += "&sel=" + sel[a].vp;
+
+		xhr.msg = msg;
 		xhr.open('POST', get_evpath(), true);
 		xhr.responseType = 'text';
 		xhr.onload = xhr.onerror = cb;
@@ -9654,7 +9027,7 @@ var msel = (function () {
 		if (xhr.overrideMimeType)
 			xhr.overrideMimeType('Content-Type', ct);
 
-		xhr.send('msg=' + uricom_enc(xhr.msg));
+		xhr.send('msg=' + xhr.msg);
 		return false;
 	};
 
@@ -9731,7 +9104,7 @@ var globalcss = (function () {
 var sandboxjs = (function () {
 	var ret = '',
 		busy = false,
-		url = SR + '/.cpr/util.js?_=' + TS,
+		url = SR + '/.cpr/w/util.js?_=' + TS,
 		tag = '<script src="' + url + '"></script>';
 
 	return function () {
@@ -9768,7 +9141,7 @@ function show_md(md, name, div, url, depth) {
 		}
 
 		wfp_debounce.n--;
-		return import_js(SR + '/.cpr/deps/marked.js', function () {
+		return import_js(SR + '/.cpr/w/deps/marked.js', function () {
 			show_md(md, name, div, url, 1);
 		});
 	}
@@ -9779,7 +9152,7 @@ function show_md(md, name, div, url, depth) {
 
 	var marked_opts = {
 		headerPrefix: 'md-',
-		breaks: true,
+		breaks: !md_no_br,
 		gfm: true
 	};
 	var ext = md_plug.pre;
@@ -9810,7 +9183,7 @@ function show_md(md, name, div, url, depth) {
 		var els = QSA('#epi a');
 		for (var a = 0, aa = els.length; a < aa; a++) {
 			var href = els[a].getAttribute('href');
-			if (!href.startsWith('#') || href.startsWith('#md-'))
+			if (!href || !href.startsWith('#') || href.startsWith('#md-'))
 				continue;
 
 			els[a].setAttribute('href', '#md-' + href.slice(1));
@@ -10022,29 +9395,19 @@ var unpost = (function () {
 				return ebi('op_unpost').innerHTML = '<p>' + L.badreply + ':</p>' + unpre(this.responseText);
 			}
 
-			if (ores.u.length == 1 && ores.u[0].timeout) {
+			if (ores.nou)
 				html.push('<p>' + L.un_nou + '</p>');
-				ores.u = [];
-			}
 
-			if (ores.c.length == 1 && ores.c[0].kinshi) {
+			if (ores.noc)
 				html.push('<p>' + L.un_noc + '</p>');
-				ores.c = [];
-			}
 
-			for (var a = 0; a < ores.u.length; a++)
-				ores.u[a].k = 'u';
-
-			for (var a = 0; a < ores.c.length; a++)
-				ores.c[a].k = 'c';
-
-			var res = ores.u.concat(ores.c);
+			var res = ores.f;
 
 			if (res.length) {
-				if (res.length == 2000)
+				if (ores.of)
 					html.push("<p>" + L.un_max);
 				else
-					html.push("<p>" + L.un_avail.format(ores.c.length, ores.u.length));
+					html.push("<p>" + L.un_avail.format(ores.nc, ores.nu));
 
 				html.push("<br />" + L.un_m2 + "</p>");
 				html.push("<table><thead><tr><td></td><td>time</td><td>size</td><td>done</td><td>file</td></tr></thead><tbody>");
@@ -10061,10 +9424,10 @@ var unpost = (function () {
 							'<a me="' + me + '" class="n' + a + '" n2="' + (a + mods[b]) +
 							'" href="#">' + L.un_next.format(Math.min(mods[b], res.length - a)) + '</a></td></tr>');
 
-				var done = res[a].k == 'c';
+				var done = res[a].pd === undefined;
 				html.push(
 					'<tr><td><a me="' + me + '" class="n' + a + '" href="#">' + (done ? L.un_del : L.un_abrt) + '</a></td>' +
-					'<td>' + unix2iso(res[a].at) + '</td>' +
+					'<td>' + unix2ui(res[a].at) + '</td>' +
 					'<td>' + ('' + res[a].sz).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + '</td>' +
 					(done ? '<td>100%</td>' : '<td>' + res[a].pd + '%</td>') +
 					'<td>' + linksplit(res[a].vp).join('<span> / </span>') + '</td></tr>');
@@ -10231,7 +9594,7 @@ function wintitle(txt, noname) {
 
 	txt += uricom_dec(get_evpath()).slice(1, -1).split('/').pop();
 
-	document.title = txt;
+	document.title = txt || "copyparty";
 }
 
 
@@ -10329,6 +9692,218 @@ ebi('files').onclick = ebi('docul').onclick = function (e) {
 };
 
 
+
+var rcm = (function () {
+	if (MOBILE)
+		return {enabled: false}
+
+	var r = {};
+	bcfg_bind(r, 'enabled', 'rcm_en', drcm.charAt(0)=='y');
+	bcfg_bind(r, 'double', 'rcm_db', drcm.charAt(1)=='y');
+
+	var menu = ebi('rcm');
+	var nsFile = {
+		elem: null,
+		type: null,
+		path: null,
+		dpath: null,
+		url: null,
+		id: null,
+		name: null,
+		no_dsel: false
+	};
+	var selFile = jcp(nsFile);
+
+	function mktemp(is_dir) {
+		qsr('#rcm_tmp');
+		if (!thegrid.en) {
+			var row = mknod('tr', 'rcm_tmp',
+				'<td>-new-</td><td colspan="' + (QSA("#files thead th").length - 1) + '"><input id="tempname" class="i" type="text" placeholder="' + (is_dir ? 'Folder' : 'File') + ' Name"></td>');
+			QS("#files tbody").appendChild(row);
+		}
+		else {
+			var row = mknod('a', 'rcm_tmp',
+				'<span class="dir" style="align-self:end"><input id="tempname" class="dir" type="text" placeholder="' + (is_dir ? 'Folder' : 'File') + ' Name"></span>');
+			if (is_dir)
+				row.className = 'dir';
+			row.style.display = 'flex';
+			QS("#ggrid").appendChild(row);
+		}
+
+		function sendit(name) {
+			name = ('' + name).trim();
+			if (!name)
+				return;
+			var data = new FormData();
+			data.set("act", is_dir ? "mkdir" : "new_md");
+			data.set("name", name);
+
+			var req = new XHR();
+			req.open("POST", get_evpath());
+			req.onload = req.onerror = function() {
+				if (req.status == 405 || req.status == 500)
+					return toast.err(3, "a " + (is_dir ? "folder" : "file") + " with that name already exists.");
+				if (req.status < 200 || req.status > 399)
+					return toast.err(3, "couldn't create " + (is_dir ? "folder" : "file") + ": <br><code>" + esc(req.responseText) + '</code>');
+				treectl.goto();
+			};
+			req.send(data);
+		}
+
+		var input = ebi("tempname");
+		input.onblur = function() {
+			sendit(input.value);
+			// Chrome blurs elements when calling remove for some reason
+			input.onblur = null;
+			row.remove();
+		};
+		input.onkeydown = function(e) {
+			if (e.key == "Enter")
+				sendit(input.value);
+			if (e.key == "Enter" || e.key == "Escape") {
+				input.onblur = null;
+				row.remove();
+				ev(e);
+			}
+		};
+		input.focus();
+	}
+
+	var opts = QSA('#rcm a');
+	for (var i = 0; i < opts.length; i++) {
+		opts[i].onclick = function(e) {
+			ev(e);
+			switch(e.target.id.slice(1)) {
+				case 'opn':
+					var a = mknod('a');
+					a.href = selFile.url;
+					a.target = selFile.type == "dir" ? '' : '_blank';
+					a.click();
+					break;
+				case 'ply': selFile.type == 'gf' ? thegrid.imshow(selFile.name) : play('f-' + selFile.id); break;
+				case 'pla': play('f-' + selFile.id); break;
+				case 'txt': showfile.show(selFile.name); break;
+				case 'md': location = selFile.path + (has(selFile.path, '?') ? '&v' : '?v'); break;
+				case 'cpl': cliptxt(selFile.url, function() {toast.ok(2, L.clipped)}); break;
+				case 'dl': ebi('seldl').click(); break;
+				case 'zip': ebi('selzip').click(); break;
+				case 'del': fileman.delete(); break;
+				case 'cut': fileman.cut(); break;
+				case 'cpy': fileman.cpy(); break;
+				case 'pst':
+					fileman.paste();
+					fileman.clip = [];
+					break;
+				case 'rnm': fileman.rename(); break;
+				case 'nfo': mktemp(true); break;
+				case 'nfi': mktemp(); break;
+				case 'sal':
+					msel.evsel(null, true);
+					selFile.no_dsel = true;
+					break;
+				case 'sin': msel.evsel(null, 't'); break;
+				case 'shr': fileman.share(); break;
+			}
+			r.hide(true);
+		};
+	}
+
+	function show(x, y, target, isGrid) {
+		selFile = jcp(nsFile);
+		if (target) {
+			var file = target.closest("#files tbody tr");
+			if (isGrid && target.matches && target.matches('#ggrid > a')) {
+				var ref = ebi(target.getAttribute('ref'));
+				file = ref && ref.closest('#files tbody tr');
+			}
+			var fa = file && file.children[1].querySelector('a[id]');
+			if (fa && fa.id != 'unsearch') {
+				selFile.no_dsel = clgot(file, "sel");
+				clmod(file, "sel", true);
+				selFile.elem = file;
+				selFile.url = fa.href;
+				selFile.path = basenames(selFile.url).replace(/(&|\?)v/, '');
+				var url = selFile.url.split("?")[0],
+					vsp = vsplit(url);
+				selFile.dpath = vsp[0];
+				selFile.name = vsp[1];
+				if (url.endsWith("/"))
+					selFile.type = "dir";
+				else {
+					var lead = file.firstChild.firstChild;
+					if (lead.id === undefined)
+						selFile.type = "tf";
+					else {
+						selFile.id = lead.id.split('-')[1];
+						selFile.type = lead.innerHTML[0] == '(' ? 'gf' : lead.id.split('-')[0];
+					}
+				}
+			}
+		}
+		msel.selui();
+
+		var has_sel = msel.getsel().length;
+		var has_clip = fileman.clip.length;
+
+		clmod(ebi('ropn'), 'hide', !selFile.path);
+		clmod(ebi('rply'), 'hide', selFile.type != 'gf' && selFile.type != 'af');
+		clmod(ebi('rpla'), 'hide', selFile.type != 'gf');
+		clmod(ebi('rtxt'), 'hide', !selFile.id);
+		clmod(ebi('rs1'), 'hide', !selFile.path);
+		clmod(ebi('rmd'), 'hide', !selFile.name || selFile.name.slice(-3) != ".md");
+		clmod(ebi('rcpl'), 'hide', !selFile.path);
+		clmod(ebi('rdl'), 'hide', !has_sel);
+		clmod(ebi('rzip'), 'hide', !has_sel);
+		clmod(ebi('rs2'), 'hide', !has_sel);
+		clmod(ebi('rcut'), 'hide', !has_sel);
+		clmod(ebi('rdel'), 'hide', !has_sel);
+		clmod(ebi('rcpy'), 'hide', !has_sel);
+		clmod(ebi('rpst'), 'hide', !has_clip);
+		clmod(ebi('rrnm'), 'hide', !has_sel);
+		clmod(ebi('rs3'), 'hide', !has_sel);
+		clmod(ebi('rs4'), 'hide', !has_sel && !has(perms, "write"));
+		var shr = ebi('rshr');
+		clmod(shr, 'hide', !can_shr || !get_evpath().indexOf(have_shr));
+		shr.innerHTML = has_sel ? L.rc_shs : L.rc_shf;
+
+		menu.style.left = x + 5 + 'px';
+		menu.style.top = y + 5 + 'px';
+		menu.style.display = 'block';
+		menu.focus();
+	}
+
+	r.hide = function(force) {
+		if (!menu.style.display || (!force && menu.contains(document.activeElement)))
+			return;
+		if (selFile.elem && !selFile.no_dsel) {
+			clmod(selFile.elem, "sel", false);
+			msel.selui();
+		}
+		selFile = jcp(nsFile);
+		menu.style.display = '';
+	}
+
+	ebi('wrap').oncontextmenu = function(e) {
+		if (!r.enabled || e.shiftKey || (r.double && menu.style.display) || /doc=/.exec(location.search)) {
+			r.hide(true);
+			return true;
+		}
+		r.hide(true);
+		if (selFile.elem && !selFile.no_dsel) {
+			clmod(selFile.elem, "sel", false);
+			msel.selui();
+		}
+		ev(e);
+		var gfile = thegrid.en && e.target && e.target.closest('#ggrid > a');
+		show(xscroll() + e.clientX, yscroll() + e.clientY, gfile || e.target, gfile);
+		return false;
+	};
+	menu.onblur = function() {setTimeout(r.hide)};
+
+	return r;
+})();
+
+
 function reload_mp() {
 	if (mp && mp.au) {
 		mpo.au = mp.au;
@@ -10378,14 +9953,6 @@ function reload_browser() {
 		ebi('path').appendChild(o);
 	}
 
-	var oo = QSA('#files>tbody>tr>td:nth-child(3)');
-	for (var a = 0, aa = oo.length; a < aa; a++) {
-		var sz = oo[a].textContent.replace(/ +/g, ""),
-			hsz = sz.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-
-		oo[a].textContent = hsz;
-	}
-
 	reload_mp();
 	try { showsort(ftab); } catch (ex) { }
 	makeSortable(ftab, function () {
@@ -10405,4 +9972,243 @@ function reload_browser() {
 	thegrid.setdirty();
 	msel.render();
 }
+
+(function() {
+	var is_selma = false;
+	var dragging = false;
+
+	var startx, starty;
+	var fwrap = null;
+	var selbox = null;
+	var ttimer = null;
+
+	var lpdelay = 250; 
+	var mvthresh = 44;
+
+	function unbox() {
+		qsr('.selbox');
+		ebi('gfiles').style.removeProperty('pointer-events')
+		ebi('wrap').style.removeProperty('user-select')
+		
+		if (selbox) {
+			console.log(selbox)
+			window.getSelection().removeAllRanges();
+		}
+		
+		is_selma = false;
+		dragging = false;
+		fwrap = null;
+		selbox = null;
+		ttimer = null;
+	}
+
+	function getpp(e) {
+		var touch = (e.touches && e.touches[0]) || e;
+		return { x: touch.clientX, y: touch.clientY };
+	}
+
+	function sel_toggle(el, m) {
+		clmod(el, 'sel', m);
+		var eref = el.getAttribute('ref');
+		if (eref) {
+			var ehidden = ebi(eref);
+			if (ehidden) {
+				var tr = ehidden.closest('tr');
+				if (tr) clmod(tr, 'sel', m);
+			}
+		}
+	}
+
+	function bob(b1, b2) {
+		return !(b1.right < b2.left || b1.left > b2.right ||
+				 b1.bottom < b2.top || b1.top > b2.bottom);
+	}
+
+	function sel_start(e) {
+		if (e.button !== 0 && e.type !== 'touchstart') return;
+		if (!thegrid.en || !treectl.dsel) return;
+		if (e.target.closest('#widget,#ops,.opview,.doc')) return;
+
+		if (e.target.closest('#gfiles'))
+			ebi('gfiles').style.userSelect = "none"
+
+		var pos = getpp(e);
+		startx = pos.x;
+		starty = pos.y;
+		is_selma = true;
+		ttimer = null;
+		
+		if (e.type === 'touchstart') {
+			ttimer = setTimeout(function() {
+				ttimer = null;
+				start_drag();
+			}, lpdelay);
+		}
+	}
+	
+	function start_drag() {
+		if (dragging) return;
+
+		dragging = true;
+		selbox = document.createElement('div');
+		selbox.className = 'selbox';
+		document.body.appendChild(selbox);
+
+		ebi('gfiles').style.pointerEvents = 'none';
+	}
+	
+	function sel_move(e) {
+		if (!is_selma) return;
+		var pos = getpp(e);
+		var dist = Math.sqrt(Math.pow(pos.x - startx, 2) + Math.pow(pos.y - starty, 2));
+
+		if (e.type === 'touchmove' && ttimer) {
+			if (dist > mvthresh) {
+				clearTimeout(ttimer);
+				ttimer = null;
+				is_selma = false;
+			}
+			return;
+		}
+		if (!dragging && dist > mvthresh && !window.getSelection().toString()) {
+			if (fwrap = e.target.closest('#wrap')) 
+				fwrap.style.userSelect = 'none';
+			else return;
+			start_drag();
+		}
+
+		if (!dragging || !selbox) return;
+		ev(e);
+
+		selbox.style.width = Math.abs(pos.x - startx) + 'px';
+		selbox.style.height = Math.abs(pos.y - starty) + 'px';
+		selbox.style.left = Math.min(pos.x, startx) + 'px';
+		selbox.style.top = Math.min(pos.y, starty) + 'px';
+
+		if (IE && window.getSelection)
+			window.getSelection().removeAllRanges();
+	}
+
+	function sel_end(e) {
+		clearTimeout(ttimer);
+		if (dragging && selbox) {
+			var sbrect = selbox.getBoundingClientRect();
+			var faf = QSA('#ggrid a');
+			var sadmode = e.shiftKey ? true : e.altKey ? false : "t";
+			for (var a = 0, aa = faf.length; a < aa; a++)
+				if (bob(sbrect, faf[a].getBoundingClientRect()))
+					sel_toggle(faf[a], sadmode);
+			msel.selui();
+			ev(e);
+		}
+		unbox();
+	}
+
+	function dsel_init() {
+		window.addEventListener('mousedown', sel_start);
+		window.addEventListener('mousemove', sel_move);
+		window.addEventListener('mouseup', sel_end);
+
+		window.addEventListener('touchstart', sel_start, { passive: true });
+		window.addEventListener('touchmove', sel_move, { passive: false });
+		window.addEventListener('touchend', sel_end, { passive: true });
+
+		window.addEventListener('dragstart', function(e) {
+			if (treectl.dsel && (is_selma || dragging)) {
+				e.preventDefault();
+			}
+		});
+	}
+	
+	dsel_init();
+})();
+
+
+var mpss = (function() {
+	var r = {}, config, ssint, npaint = 0;
+
+	r.load = function () {
+		if (!afilt.ssg)
+			return false;
+
+		config = {
+			vthresh: afilt.sscv[0],
+			sthresh: afilt.sscv[1],
+			etresh: afilt.sscv[2],
+			sspeed: clamp(afilt.sscv[3], 0.15, 8.0),
+			rspeed: 0.2,
+			loopInterval: 25,
+		};
+		return true;
+	};
+
+	r.go = function () {
+		if (!ssint && afilt.ssen && r.load())
+			ssint = setInterval(detectSilence, config.loopInterval);
+	};
+
+	r.stop = function () {
+		clearInterval(ssint);
+		ssint = null;
+		if (!mp) return;
+		if (afilt.ssg) afilt.ssg.gain.value = 1.0;
+		if (mp.au && mp.au._ss) mp.au.playbackRate = 1.0;
+		if (mp.au2 && mp.au2._ss) mp.au2.playbackRate = 1.0;
+	};
+
+	function detectSilence() {
+		var ae = mp.au;
+		ae._ss = true;
+
+		var gain = afilt.ssg.gain;
+		var duration = ae.duration || 0;
+	
+		var slimit = duration * (config.sthresh / 100);
+		var elimit = duration * (1 - (config.etresh / 100));
+		var in_limits = ae.currentTime < slimit || ae.currentTime > elimit;
+
+		var tspeed = 1.0;
+		var tvol = 1.0;
+		var is_silent = false;
+
+		if (in_limits) {
+			var analyser = afilt.ssa;
+			var da = new Uint8Array(analyser.frequencyBinCount);
+			analyser.getByteFrequencyData(da);
+
+			var maxvol = 0;
+			for (var i = 0; i < da.length; i++) {
+				if (da[i] > maxvol) maxvol = da[i];
+			}
+
+			if (++npaint > 4) {
+				npaint = 0;
+				ebi('au_ss').innerHTML = maxvol;
+			}
+
+			if (maxvol < config.vthresh) {
+				tspeed = config.sspeed;
+				tvol = 0.0;
+				is_silent = true;
+			}
+		}
+
+		if (is_silent) {
+			if (Math.abs(ae.playbackRate - tspeed) > 0.01) {
+				ae.playbackRate += (tspeed - ae.playbackRate) * config.rspeed;
+			}
+			if (Math.abs(gain.value - tvol) > 0.01) {
+				gain.value += (tvol - gain.value) * config.rspeed;
+			}
+		} else {
+			ae.playbackRate = 1.0;
+			gain.value = 1.0;
+		}
+	}
+
+	return r;
+})();
+
 treectl.hydrate();
+
+J_BRW = 2;
